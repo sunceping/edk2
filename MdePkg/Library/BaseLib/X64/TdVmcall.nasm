@@ -12,6 +12,9 @@ SECTION .text
 %define TDVMCALL_EXPOSE_REGS_MASK       0xffec
 %define TDVMCALL                        0x0
 
+%define TDVMCALL_MAPGPA                 0x10001
+%define TDVMCALL_STATUS_RETRY           0x1
+
 %macro tdcall 0
     db 0x66,0x0f,0x01,0xcc
 %endmacro
@@ -117,22 +120,34 @@ ASM_PFX(TdVmCall):
        mov r14, r9
        mov r15, [rsp + first_variable_on_stack_offset ]
 
+       ; Save sub-function
+       push rcx
+
        tdcall_regs_preamble TDVMCALL, TDVMCALL_EXPOSE_REGS_MASK
 
        tdcall
 
        ; ignore return dataif TDCALL reports failure.
        test rax, rax
-       jnz .no_return_data
+       jz .successful_tdcall
+       pop rcx
+       jmp .no_return_data
 
+.successful_tdcall:
        ; Propagate TDVMCALL success/failure to return value.
        mov rax, r10
 
        ; Retrieve the Val pointer.
        mov r9, [rsp + second_variable_on_stack_offset ]
        test r9, r9
-       jz .no_return_data
+       jnz .output_value
+       pop rcx
+       jmp .no_return_data
 
+.output_value:
+       pop rcx
+       cmp rcx, TDVMCALL_MAPGPA
+       jz .mapGPA_return_data
        ; On success, propagate TDVMCALL output value to output param
        test rax, rax
        jnz .no_return_data
@@ -143,3 +158,9 @@ ASM_PFX(TdVmCall):
        tdcall_pop_regs
 
        ret
+.mapGPA_return_data:
+       ; On Retry, propagate TDVMCALL output value to output param
+       cmp  rax, TDVMCALL_STATUS_RETRY
+       jnz .no_return_data
+       mov [r9], r11
+       jmp .no_return_data
