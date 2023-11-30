@@ -37,12 +37,14 @@
   memory block which is allocated in the ACPI Nvs memory. APs are waken up and
   spin around the relocated mailbox for further command.
 
+  @param[in, out]  ResetVector      Pointer to the ResetVector
+
   @return   EFI_PHYSICAL_ADDRESS    Address of the relocated mailbox
 **/
 EFI_PHYSICAL_ADDRESS
 EFIAPI
 RelocateMailbox (
-  VOID
+  EFI_PHYSICAL_ADDRESS *ResetVector
   )
 {
   EFI_PHYSICAL_ADDRESS  Address;
@@ -115,6 +117,13 @@ RelocateMailbox (
     0
     );
 
+  *ResetVector = (UINT64)ApLoopFunc + (RelocationMap.RelocateApResetVector -
+				       RelocationMap.RelocateApLoopFuncAddress);
+  DEBUG ((
+    DEBUG_INFO,
+    "Ap Relocation: reset_vector %llx\n",
+    *ResetVector
+    ));
   return Address;
 }
 
@@ -142,6 +151,7 @@ AlterAcpiTable (
   UINT8                                                *NewMadtTable;
   UINTN                                                NewMadtTableLength;
   EFI_PHYSICAL_ADDRESS                                 RelocateMailboxAddress;
+  EFI_PHYSICAL_ADDRESS                                 RelocateResetVector;
   EFI_ACPI_6_4_MULTIPROCESSOR_WAKEUP_STRUCTURE         *MadtMpWk;
   EFI_ACPI_1_0_MULTIPLE_APIC_DESCRIPTION_TABLE_HEADER  *MadtHeader;
 
@@ -155,7 +165,7 @@ AlterAcpiTable (
     return;
   }
 
-  RelocateMailboxAddress = RelocateMailbox ();
+  RelocateMailboxAddress = RelocateMailbox (&RelocateResetVector);
   if (RelocateMailboxAddress == 0) {
     ASSERT (FALSE);
     DEBUG ((DEBUG_ERROR, "Failed to relocate Td mailbox\n"));
@@ -186,9 +196,10 @@ AlterAcpiTable (
       MadtMpWk                 = (EFI_ACPI_6_4_MULTIPROCESSOR_WAKEUP_STRUCTURE *)(NewMadtTable + Table->Length);
       MadtMpWk->Type           = EFI_ACPI_6_4_MULTIPROCESSOR_WAKEUP;
       MadtMpWk->Length         = sizeof (EFI_ACPI_6_4_MULTIPROCESSOR_WAKEUP_STRUCTURE);
-      MadtMpWk->MailBoxVersion = 0;
+      MadtMpWk->MailBoxVersion = 1;
       MadtMpWk->Reserved       = 0;
       MadtMpWk->MailBoxAddress = RelocateMailboxAddress;
+      MadtMpWk->ResetVector    = RelocateResetVector;
 
       Status = AcpiTableProtocol->InstallAcpiTable (AcpiTableProtocol, NewMadtTable, NewMadtTableLength, &NewTableKey);
       if (EFI_ERROR (Status)) {
