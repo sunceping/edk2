@@ -68,14 +68,6 @@ TSS_SEL               EQU $ - GDT_BASE    ; Selector [0x20]
     DB  0                             
     DB  0
 
-TSS_BUSY_SEL           EQU $ - GDT_BASE    ; Selector [0x28]
-    DW  0FFFFh                            ; limit 0xFFFF
-    DW  0                                 ; base 0
-    DB  0
-    DB  08bh                              ; TSS-busy, S=0,                             
-    DB  0                             
-    DB  0
-
 ; SPARE5_SEL
 SPARE5_SEL             EQU $ - GDT_BASE    ; Selector [0x30]
     DW  0                               ; limit 0
@@ -90,12 +82,6 @@ GDT_DESC:
     DW GDT_SIZE - 1
     DQ GDT_BASE
 
-; SECTION .bss
-; global STACK_BASE
-; align   4096
-; STACK_BASE:
-;  resb 4096*7
-; STACK_TOP:
 SECTION .text
 
 BITS 32
@@ -126,6 +112,8 @@ BITS 32
 %define PAGE_PDP_ATTR (PAGE_ACCESSED + \
                        PAGE_READ_WRITE + \
                        PAGE_PRESENT)
+
+%define TDX_WORK_AREA_MB_PGTBL_READY  (FixedPcdGet32 (PcdOvmfWorkAreaBase) + 16)
 
 BITS 64
 
@@ -191,7 +179,6 @@ MailBoxSleep:
     jmp       $
 Panic:
     ud2
-AsmRelocateApResetVector:
 
 global STACK_BASE
 align   4096
@@ -199,13 +186,17 @@ STACK_BASE:
  resb 4096*7 ; 4096*6 as Page Table Entry, 4096 as Stack
 STACK_TOP:
 
-PrepareStack:
-    ; prepare the stack 
+AsmRelocateApResetVector:
+
+.prepareStack:
     ; The stack can then be used to switch from long mode to compatibility mode
     mov rsp, STACK_TOP
     mov rbp, STACK_BASE
 
-InitialStack:
+    cmp byte[TDX_WORK_AREA_MB_PGTBL_READY], 1
+    je  .loadGDT
+
+.initialStack:
     ; since the stack is not in .bss, so not zeroed
     mov rdi, rbp
     mov ecx, 4096*7
@@ -213,9 +204,8 @@ InitialStack:
     cld
     rep stosb
 
-DisablePaging:
-    cli
 .loadGDT:
+    cli
     mov     rsi, GDT_DESC
     lgdt    [rsi]
 .loadSwicthModeCode:
@@ -225,9 +215,9 @@ DisablePaging:
     or      rcx, rdx
     push    rcx 
 
-    mov     rcx, dword 0x8    ; load compatible mode selector
+    mov     rcx, dword 0x8     ; load compatible mode selector
     shl     rcx, 32
-    lea     rdx, [Compatible] ; assume address < 4G
+    lea     rdx, [Compatible]  ; assume address < 4G
     or      rcx, rdx
     push    rcx
     retf
@@ -241,9 +231,9 @@ Compatible:
     mov     fs, ax
     mov     gs, ax
 
-.ClearTSS:
-    mov     rax, dword 0x20
-    ltr     ax
+; .ClearTSS:
+;     mov     rax, dword 0x20
+;     ltr     ax
 
     ; Must clear the CR4.PCIDE before clearing paging
     mov     rcx, cr4
@@ -258,37 +248,21 @@ Compatible:
     ;
 RestoreCr0:
     ; Only enable  PE(bit 0), NE(bit 5), ET(bit 4) 0x31
-    mov    rcx, cr0
-    btc    ecx, 18  ;CR0.AM
-    btc    ecx, 16  ;CR0.WP
-    btc    ecx, 1   ;CR0.MP
-    mov    cr0, rcx
+    mov    rax, dword 0x31
+    mov    cr0, rax
 
 RestoreCr4:
-    ; Only Enable MCE(bit 6), VMXE(bit 13)
-    mov      rax, cr4
-    btc      eax, 22 ; CR4.PKE
-    btc      eax, 21 ; CR4.SMAP
-    btc      eax, 20 ; CR4.SMEP
-    btc      eax, 18 ; CR4.OSXSAVE
-    btc      eax, 16 ; CR4.FSGSBASE
-    btc      eax, 12 ; CR4.LA57
-    btc      eax, 11 ; CR4.UMIP
-    btc      eax, 10 ; CR4.OSXMMEXCPT
-    btc      eax, 9  ; CR4.OSFXSR
-    btc      eax, 5  ; CR4.PAE
-    btc      eax, 4  ; CR4.PSE  
+    ; Only Enable MCE(bit 6), VMXE(bit 13) 0x2040
+    ; TDX enforeced the VMXE = 1 and mask it in VMM
+    mov      rax, 0x40
     mov      cr4, rax
-; ClearLEM:
-    ; Clear EFER.LME, TDX enforec the LME = 1, can not clear it
-    ; ;
-    ; mov     ecx, 0xC0000080
-    ; rdmsr
-    ; btc     eax, 8
-    ; wrmsr
+
+
+CheckTdxWorkAreaBeforeBuildPagetables:
+    cmp  byte[TDX_WORK_AREA_MB_PGTBL_READY], 1
+    je   SetCr3
 
 BITS 32
-
 ConstructPageTables:
     mov     ecx, 6 * 0x1000 / 4
     xor     eax, eax
@@ -333,6 +307,8 @@ pageTableEntriesLoop:
     mov     [ecx * 8 + ebp + (0x2000 - 8)], eax
     mov     [(ecx * 8 + ebp + (0x2000 - 8)) + 4], edx
     loop    pageTableEntriesLoop
+TdxPostBuildPageTables:
+    mov     byte[TDX_WORK_AREA_MB_PGTBL_READY], 1
 
 SetCr3:
     ;
@@ -355,21 +331,11 @@ EnablePaging:
 
 BITS  64
 LongMode:
-.set_mailbox_addr:
     mov      rbx, qword[rel mailbox_address]
-.jump_mailbox:
     jmp      AsmRelocateApMailBoxLoopStart
 align 16
 mailbox_address:
     dq 0
-saved_cr0:
-    dq 0
-saved_cr3:
-    dq 0
-saved_cr4:
-    dq 0
-saved_gdt:
-    db 10 dup 0
 BITS 64
 AsmRelocateApMailBoxLoopEnd:
 
@@ -378,6 +344,7 @@ AsmRelocateApMailBoxLoopEnd:
 ;-------------------------------------------------------------------------------------
 global ASM_PFX(AsmGetRelocationMap)
 ASM_PFX(AsmGetRelocationMap):
+    mov        byte[TDX_WORK_AREA_MB_PGTBL_READY], 0
     lea        rax, [AsmRelocateApMailBoxLoopStart]
     mov        qword [rcx], rax
     mov        qword [rcx +  8h], AsmRelocateApMailBoxLoopEnd - AsmRelocateApMailBoxLoopStart
