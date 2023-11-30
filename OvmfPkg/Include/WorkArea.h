@@ -84,6 +84,7 @@ typedef struct _TDX_MEASUREMENTS_DATA {
 typedef struct _SEC_TDX_WORK_AREA {
   UINT32                   PageTableReady;
   UINT32                   Gpaw;
+  UINT32                   TdxMailBoxPageTableReady;
   UINT64                   HobList;
   TDX_MEASUREMENTS_DATA    TdxMeasurementsData;
 } SEC_TDX_WORK_AREA;
