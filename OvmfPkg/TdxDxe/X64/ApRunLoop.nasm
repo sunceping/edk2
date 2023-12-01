@@ -84,6 +84,8 @@ MailBoxLoop:
 MailBoxProcessCommand:
     cmp        dword [rbx + CommandOffset], MpProtectedModeWakeupCommandWakeup
     je         MailBoxWakeUp
+    cmp        dword [rbx + CommandOffset], MpProtectedModeWakeupCommandTest
+    je         MailBoxTest
     cmp        dword [rbx + CommandOffset], MpProtectedModeWakeupCommandSleep
     je         MailBoxSleep
     ; Don't support this command, so ignore
@@ -94,6 +96,9 @@ MailBoxWakeUp:
     ; the command field back to zero as acknowledgement.
     mov        qword [rbx + CommandOffset], 0
     jmp        rax
+MailBoxTest:
+    mov        qword [rbx + CommandOffset], 0
+    jmp        MailBoxLoop
 MailBoxSleep:
     jmp       $
 Panic:
