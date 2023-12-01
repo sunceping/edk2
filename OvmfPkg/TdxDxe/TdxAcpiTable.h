@@ -41,7 +41,7 @@ AsmGetRelocationMap (
 EFI_PHYSICAL_ADDRESS
 EFIAPI
 RelocateMailbox (
-  VOID
+  EFI_PHYSICAL_ADDRESS *ResetVector
   );
 
 /**
