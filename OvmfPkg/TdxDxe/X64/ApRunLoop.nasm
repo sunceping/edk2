@@ -183,8 +183,14 @@ Panic:
 global STACK_BASE
 align   4096
 STACK_BASE:
- resb 4096*7 ; 4096*6 as Page Table Entry, 4096 as Stack
+ resb 4096*8 ; 4096*6 as Page Table Entry(4-level) , 4096 as PML5, 4096 as Stack
 STACK_TOP:
+
+; global TEMP_BASE
+; align   4096
+; TEMP_BASE:
+;  resb 4096  ; 4096*1 as Page table for 5-level 
+; TEMP_TOP:
 
 AsmRelocateApResetVector:
 
@@ -200,7 +206,7 @@ AsmRelocateApResetVector:
 .initialStack:
     ; since the stack is not in .bss, so not zeroed
     mov rdi, rbp
-    mov ecx, 4096*7
+    mov ecx, 4096*8
     mov al, 0
     cld
     rep stosb
@@ -222,8 +228,10 @@ AsmRelocateApResetVector:
     or      rcx, rdx
     push    rcx
     retf
+
+BITS 32
 Compatible:
-    mov     rax, dword 0x18
+    mov     eax, dword 0x18
 ;     ; reload DS/ES/SS to make sure they are correct referred to current GDT
     mov     ds, ax
     mov     es, ax
@@ -237,35 +245,44 @@ Compatible:
 ;     ltr     ax
 
     ; Must clear the CR4.PCIDE before clearing paging
-    mov     rcx, cr4
+    mov     ecx, cr4
+;save the CR4
+    push    ecx
     btc     ecx, 17
-    mov     cr4, rcx
+    mov     cr4, ecx
     ;
     ; Disable paging
     ;
-    mov     rcx, cr0
+    mov     ecx, cr0
     btc     ecx, 31
-    mov     cr0, rcx
+    mov     cr0, ecx
     ;
 RestoreCr0:
     ; Only enable  PE(bit 0), NE(bit 5), ET(bit 4) 0x31
-    mov    rax, dword 0x31
-    mov    cr0, rax
+    mov    eax, dword 0x31
+    mov    cr0, eax
 
-RestoreCr4:
+
     ; Only Enable MCE(bit 6), VMXE(bit 13) 0x2040
     ; TDX enforeced the VMXE = 1 and mask it in VMM, so not set it.
-    mov      rax, 0x40
-    mov      cr4, rax
+    mov     eax, 0x40
+
+; ; if the OS is using 5-level paging mode, update it
+;     mov      rcx, cr4
+;     bt       rcx, 12
+;     jnc      RestoreCr4
+;     mov      rax, 0x1040
+
+RestoreCr4:
+    mov     cr4, eax
 
 
 CheckTdxWorkAreaBeforeBuildPagetables:
     cmp  byte[TDX_WORK_AREA_MB_PGTBL_READY], 1
     je   SetCr3
 
-BITS 32
 ConstructPageTables:
-    mov     ecx, 6 * 0x1000 / 4
+    mov     ecx, 7 * 0x1000 / 4
     xor     eax, eax
     xor     edx, edx
 
@@ -316,6 +333,29 @@ SetCr3:
     ; Set CR3 now that the paging structures are available
     ;
     mov     cr3, ebp
+
+    pop     ecx
+    bt      ecx, 12
+    jnc     EnablePAE
+TDXBuildExtraPageTables:
+    xor     eax, eax
+    xor     edx, edx
+    ;
+    ; Top level Page Directory Pointers (1 * 256TB entry)
+    ;
+
+    lea     ebx, [PAGE_PDP_ATTR + ebp]
+    mov     dword[ebp + 0x6000], ebx
+    mov     dword[ebp + 0x6000 + 4], edx
+
+ReSetCr3:
+    lea     eax, [0x6000 + ebp]
+    mov     cr3, eax
+
+
+    mov     eax, cr4
+    bts     eax, 12
+    mov     cr4, eax
 
 EnablePAE:
     mov     eax, cr4
