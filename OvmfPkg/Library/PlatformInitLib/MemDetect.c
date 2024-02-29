@@ -45,6 +45,23 @@ Module Name:
 
 #define MEGABYTE_SHIFT  20
 
+#define EV_POSTCODE_INFO_QEMU_RESERVED_MEMORY_END  "QEMU RESERVED MEMORY END"
+#define QEMU_RESERVED_MEMORY_END_LEN               (sizeof(EV_POSTCODE_INFO_QEMU_RESERVED_MEMORY_END) - 1)
+
+#define EV_POSTCODE_INFO_QEMU_X_PCIMMIO64MB_DATA  "QEMU X-PCIMMIO64MB"
+#define QEMU_X_PCIMMIO64MB_DATA_LEN               (sizeof(EV_POSTCODE_INFO_QEMU_X_PCIMMIO64MB_DATA) - 1)
+
+#define EV_POSTCODE_INFO_QEMU_E820_DATA  "QEMU E820"
+#define QEMU_E820_DATA_LEN               (sizeof(EV_POSTCODE_INFO_QEMU_E820_DATA) - 1)
+
+VOID
+MeasurementAndBuildGuidHobForQemuInputData (
+  IN VOID    *EventLog,
+  IN UINT32  LogLen,
+  IN VOID    *HashData,
+  IN UINT64  HashDataLen
+  );
+
 VOID
 EFIAPI
 PlatformQemuUc32BaseInitialization (
@@ -356,6 +373,19 @@ PlatformScanE820 (
   QemuFwCfgSelectItem (FwCfgItem);
   for (Processed = 0; Processed < FwCfgSize; Processed += sizeof E820Entry) {
     QemuFwCfgReadBytes (sizeof E820Entry, &E820Entry);
+    if (TdIsEnabled ()) {
+      //
+      // Measure the "etc/e820" which is downloaded from QEMU.
+      // It has to be done before it is consumed.
+      //
+      MeasurementAndBuildGuidHobForQemuInputData (
+        EV_POSTCODE_INFO_QEMU_E820_DATA,
+        QEMU_E820_DATA_LEN,
+        (VOID *)(UINTN)&E820Entry,
+        sizeof(E820Entry)
+        );
+    }
+
     Callback (&E820Entry, PlatformInfoHob);
   }
 
@@ -518,6 +548,20 @@ PlatformGetFirstNonAddress (
     case EFI_NOT_FOUND:
       break;
     case EFI_SUCCESS:
+
+      if (TdIsEnabled ()) {
+        //
+        // Measure the "opt/ovmf/X-PciMmio64Mb" which is downloaded from QEMU.
+        // It has to be done before it is consumed.
+        //
+        MeasurementAndBuildGuidHobForQemuInputData (
+          EV_POSTCODE_INFO_QEMU_X_PCIMMIO64MB_DATA,
+          QEMU_X_PCIMMIO64MB_DATA_LEN,
+          (VOID *)(UINTN)&FwCfgPciMmio64Mb,
+          sizeof(FwCfgPciMmio64Mb)
+          );
+      }
+
       if (FwCfgPciMmio64Mb <= 0x1000000) {
         PlatformInfoHob->PcdPciMmio64Size = LShiftU64 (FwCfgPciMmio64Mb, 20);
         break;
@@ -566,6 +610,20 @@ PlatformGetFirstNonAddress (
   if (!EFI_ERROR (Status) && (FwCfgSize == sizeof HotPlugMemoryEnd)) {
     QemuFwCfgSelectItem (FwCfgItem);
     QemuFwCfgReadBytes (FwCfgSize, &HotPlugMemoryEnd);
+
+    if (TdIsEnabled ()) {
+      //
+      // Measure the "etc/reserved-memory-end" which is downloaded from QEMU.
+      // It has to be done before it is consumed.
+      //
+      MeasurementAndBuildGuidHobForQemuInputData (
+        EV_POSTCODE_INFO_QEMU_RESERVED_MEMORY_END,
+        QEMU_RESERVED_MEMORY_END_LEN,
+        (VOID *)(UINTN)&HotPlugMemoryEnd,
+        FwCfgSize
+        );
+    }
+
     DEBUG ((
       DEBUG_VERBOSE,
       "%a: HotPlugMemoryEnd=0x%Lx\n",
