@@ -374,6 +374,7 @@ PlatformScanE820 (
   for (Processed = 0; Processed < FwCfgSize; Processed += sizeof E820Entry) {
     QemuFwCfgReadBytes (sizeof E820Entry, &E820Entry);
     if (TdIsEnabled ()) {
+      DEBUG ((DEBUG_ERROR, "%a: [etc_e820] QemuFwCfgReadBytes:\n", __func__));
       //
       // Measure the "etc/e820" which is downloaded from QEMU.
       // It has to be done before it is consumed.
@@ -382,7 +383,7 @@ PlatformScanE820 (
         EV_POSTCODE_INFO_QEMU_E820_DATA,
         QEMU_E820_DATA_LEN,
         (VOID *)(UINTN)&E820Entry,
-        sizeof(E820Entry)
+        sizeof (E820Entry)
         );
     }
 
