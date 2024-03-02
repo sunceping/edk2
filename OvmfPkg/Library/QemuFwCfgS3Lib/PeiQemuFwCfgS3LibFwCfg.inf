@@ -33,7 +33,20 @@
 [Packages]
   MdePkg/MdePkg.dec
   OvmfPkg/OvmfPkg.dec
+  CryptoPkg/CryptoPkg.dec
+  SecurityPkg/SecurityPkg.dec
 
 [LibraryClasses]
   DebugLib
   QemuFwCfgLib
+  BaseLib
+
+[LibraryClasses.X64]
+  TdxLib
+  BaseCryptLib
+  BaseMemoryLib
+  MemoryAllocationLib
+  HobLib
+
+[Guids]
+  gCcEventEntryHobGuid
