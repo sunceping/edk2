@@ -77,3 +77,15 @@ TdxHelperBuildGuidHobForTdxMeasurement (
 {
   return EFI_UNSUPPORTED;
 }
+
+EFI_STATUS
+EFIAPI
+TdxHelperMeasureFwCfgData (
+  IN VOID    *EventLog,
+  IN UINT32  LogLen,
+  IN VOID    *HashData,
+  IN UINT64  HashDataLen
+  )
+{
+  return EFI_UNSUPPORTED; 
+}
