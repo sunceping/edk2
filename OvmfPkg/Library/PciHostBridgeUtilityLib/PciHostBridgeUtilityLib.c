@@ -24,6 +24,7 @@
 #include <Protocol/PciHostBridgeResourceAllocation.h>
 #include <IndustryStandard/UefiTcgPlatform.h>
 #include <Library/TpmMeasurementLib.h>
+#include <Library/TdxHelperLib.h>
 
 #define EV_POSTCODE_INFO_QEMU_EXTRA_PCI_BOOTS  "QEMU EXTRA PCI ROOTS DATA"
 #define QEMU_EXTRA_PCI_BOOTS                   (sizeof(EV_POSTCODE_INFO_QEMU_EXTRA_PCI_BOOTS) - 1)
@@ -279,15 +280,36 @@ PciHostBridgeUtilityGetRootBridgesBusScan (
     // Measure the "etc/extra-pci-roots" which is downloaded from QEMU.
     // It has to be done before it is consumed.
     //
-    TpmMeasureAndLogData (
-      1,
-      EV_PLATFORM_CONFIG_FLAGS,
-      EV_POSTCODE_INFO_QEMU_EXTRA_PCI_BOOTS,
-      QEMU_EXTRA_PCI_BOOTS,
-      (VOID *)(UINTN)&ExtraRootBridges,
-      FwCfgSize
-      );
+    // TpmMeasureAndLogData (
+    //   1,
+    //   EV_PLATFORM_CONFIG_FLAGS,
+    //   EV_POSTCODE_INFO_QEMU_EXTRA_PCI_BOOTS,
+    //   QEMU_EXTRA_PCI_BOOTS,
+    //   (VOID *)(UINTN)&ExtraRootBridges,
+    //   FwCfgSize
+    //   );
+ #if defined (TDX_GUEST_SUPPORTED) || defined (TDX_PEI_LESS_BOOT)
+  TdxHelperMeasureFwCfgData (
+    EV_POSTCODE_INFO_QEMU_EXTRA_PCI_BOOTS,
+    QEMU_EXTRA_PCI_BOOTS,
+    (VOID *)(UINTN)&ExtraRootBridges,
+    FwCfgSize
+    );
 
+  TdxHelperMeasureFwCfgData (
+    EV_POSTCODE_INFO_QEMU_EXTRA_PCI_BOOTS,
+    QEMU_EXTRA_PCI_BOOTS,
+    (VOID *)(UINTN)&ExtraRootBridges,
+    FwCfgSize
+    );
+  
+  TdxHelperMeasureFwCfgData (
+    EV_POSTCODE_INFO_QEMU_EXTRA_PCI_BOOTS,
+    QEMU_EXTRA_PCI_BOOTS,
+    (VOID *)(UINTN)&ExtraRootBridges,
+    FwCfgSize
+    );
+ #endif
     //
     // Validate the number of extra root bridges. As BusMax is inclusive, the
     // max bus count is (BusMax - BusMin + 1). From that, the "main" root bus
