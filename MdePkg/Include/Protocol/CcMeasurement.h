@@ -70,6 +70,13 @@ typedef UINT32 EFI_CC_MR_INDEX;
 
 #pragma pack (1)
 
+typedef struct {
+  UINT32    LogIndex;
+  UINT32    LogSize;
+} EFI_CC_EVENT_VARIABLE_HEADER;
+
+#define OVMF_CC_MEASUREMENT_EVENT_VARIABLE_NAME L"CcEvent"
+
 #define EFI_CC_EVENT_HEADER_VERSION  1
 
 typedef struct {
