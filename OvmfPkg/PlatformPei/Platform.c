@@ -318,6 +318,11 @@ InitializePlatform (
 
  #endif
 
+  if (EFI_ERROR(PlatformInitFwCfgInfo())){
+    DEBUG ((DEBUG_INFO, "PlatformInitFwCfgInfo Failed!\n"));
+  }
+
+
   PlatformInfoHob->SmmSmramRequire     = FeaturePcdGet (PcdSmmSmramRequire);
   PlatformInfoHob->SevEsIsEnabled      = MemEncryptSevEsIsEnabled ();
   PlatformInfoHob->PcdPciMmio64Size    = PcdGet64 (PcdPciMmio64Size);
