@@ -40,3 +40,6 @@
   IoLib
   MemoryAllocationLib
 
+[Guids]
+  gOvmfFwCfgInfoHobGuid
+

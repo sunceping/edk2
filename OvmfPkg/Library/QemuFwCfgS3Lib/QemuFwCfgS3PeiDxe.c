@@ -9,6 +9,8 @@
 
 #include <Library/QemuFwCfgLib.h>
 #include <Library/QemuFwCfgS3Lib.h>
+#include <Library/BaseLib.h>
+#include <Library/DebugLib.h>
 
 /**
   Determine if S3 support is explicitly enabled.
@@ -31,6 +33,22 @@ QemuFwCfgS3Enabled (
   FIRMWARE_CONFIG_ITEM  FwCfgItem;
   UINTN                 FwCfgSize;
   UINT8                 SystemStates[6];
+
+
+  if (TdIsEnabled ()) {
+      UINT8  *Buffer;
+
+      DEBUG((DEBUG_INFO, "[Sunce] QemuFwCfgS3Enabled\n"));
+
+      Status = QemuFwCfgGetDataFromCache("etc/system-states", &FwCfgSize , Buffer);
+      if (EFI_ERROR (Status)) {
+        ASSERT(FALSE);
+        return FALSE;
+      }
+      DEBUG((DEBUG_INFO, "[Sunce] Buffer[3] %d\n", Buffer[3]));
+
+      return (BOOLEAN)(Buffer[3] & BIT7);
+  }
 
   Status = QemuFwCfgFindFile ("etc/system-states", &FwCfgItem, &FwCfgSize);
   if ((Status != RETURN_SUCCESS) || (FwCfgSize != sizeof SystemStates)) {
