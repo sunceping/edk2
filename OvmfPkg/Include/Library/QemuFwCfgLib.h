@@ -164,4 +164,36 @@ QemuFwCfgFindFile (
   OUT  UINTN                 *Size
   );
 
+#pragma pack(1)
+typedef struct {
+  CHAR8 FileName[QEMU_FW_CFG_FNAME_SIZE];
+  FIRMWARE_CONFIG_ITEM FwCfgItem;
+  UINT32 DataSize;
+  //UINT8  *data
+} FW_CFG_INFO;
+
+typedef struct {
+  FIRMWARE_CONFIG_ITEM FwCfgItem;
+  UINT32 Offset;
+  BOOLEAN CacheReady;
+  BOOLEAN SkipCache;
+} FW_CFG_SELECT_INFO;
+
+typedef struct {
+    CHAR8 FileName[QEMU_FW_CFG_FNAME_SIZE];
+    BOOLEAN Measured;
+    FIRMWARE_CONFIG_ITEM FwCfgItem;
+    UINT64 FwCfgSize;
+} CACHE_FW_CFG_STRCUT;
+
+#pragma pack()
+
+// RETURN_STATUS
+// EFIAPI
+// QemuFwCfgGetDataFromCache (
+//   IN   CONST CHAR8  *FileName,
+//   OUT  UINTN  *Size,
+//   OUT  UINT8  *Buffer
+//   );
+
 #endif

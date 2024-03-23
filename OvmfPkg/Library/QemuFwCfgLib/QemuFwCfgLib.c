@@ -19,6 +19,61 @@
 
 #include "QemuFwCfgLibInternal.h"
 
+#define E820_FWCFG_FILE \
+        "etc/e820"
+
+#define SYSTEM_STATES_FWCFG_FILE \
+        "etc/system-states"
+
+#define EXTRA_PCI_ROOTS_FWCFG_FILE \
+        "etc/extra-pci-roots" 
+
+#define BOOT_MENU_WAIT_TIME_FWCFG_FILE \
+        "etc/boot-menu-wait"
+
+#define SMBIOS_VERSION_FWCFG_FILE \
+        "etc/smbios/smbios-anchor"
+
+#define RESERVED_MEMORY_END_FWCFG_FILE \
+        "etc/reserved-memory-end"
+
+#define PCI_MMIO_FWCFG_FILE \
+        "opt/ovmf/X-PciMmio64Mb"
+
+#define BOOTORDER_FWCFG_FILE \
+        "bootorder"
+
+// STATIC CONST CACHE_FW_CFG_STRCUT mCacheFwCfgList[] = {
+//     { E820_FWCFG_FILE, TRUE, 0, 0},
+//     { SYSTEM_STATES_FWCFG_FILE, TRUE, 0, 0},
+//     { EXTRA_PCI_ROOTS_FWCFG_FILE, FALSE, 0, 0},
+//     { BOOT_MENU_WAIT_TIME_FWCFG_FILE, FALSE, 0, 0},
+//     { SMBIOS_VERSION_FWCFG_FILE, FALSE, 0, 0},
+//     { RESERVED_MEMORY_END_FWCFG_FILE, FALSE, 0, 0},
+//     { PCI_MMIO_FWCFG_FILE, FALSE, 0, 0},
+//     { BOOTORDER_FWCFG_FILE, FALSE, 0, 0}
+// };
+
+// #define CACHE_FW_CFG_COUNT sizeof(mCacheFwCfgList)/sizeof(mCacheFwCfgList[0])
+
+
+// VOID
+// QemuFwCfgGetCacheList(
+//   VOID *CacheFwCfgList,
+//   UINT32 *ListSize
+//  )
+// {
+//   DEBUG((DEBUG_INFO, "[Sunce] QemuFwCfgGetCacheList\n"));
+
+//   if (CacheFwCfgList == NULL )
+//   {
+//      *ListSize = sizeof(mCacheFwCfgList);
+//      return;
+//   }
+
+//   CopyMem(CacheFwCfgList, mCacheFwCfgList, sizeof(mCacheFwCfgList));
+// }
+
 /**
   Selects a firmware configuration item for reading.
 
@@ -34,9 +89,35 @@ QemuFwCfgSelectItem (
   IN FIRMWARE_CONFIG_ITEM  QemuFwCfgItem
   )
 {
+  if (QemuFwCfgCacheEnable()) {   
+    DEBUG ((DEBUG_INFO, "%a: QemuFwCfgCacheEnable\n", __func__));
+    InternalQemuFwCfgSelectItem (QemuFwCfgItem);
+  }
+
   DEBUG ((DEBUG_INFO, "Select Item: 0x%x\n", (UINT16)(UINTN)QemuFwCfgItem));
   IoWrite16 (FW_CFG_IO_SELECTOR, (UINT16)(UINTN)QemuFwCfgItem);
 }
+
+
+// BOOLEAN
+// QemuFwCfgCacheEnable (
+//   VOID
+//   )
+// {
+//   EFI_HOB_GUID_TYPE  *GuidHob;
+//   GuidHob = GetFirstGuidHob (&gOvmfFwCfgInfoHobGuid);
+//   if (GuidHob == NULL) {
+//     return FALSE;
+//   }  
+
+//   FW_CFG_SELECT_INFO *FwCfgSelectInfo;
+//   FwCfgSelectInfo = (FW_CFG_SELECT_INFO *)(VOID *)GET_GUID_HOB_DATA (GuidHob);
+//   if (FwCfgSelectInfo->CacheReady){
+//       return TRUE;
+//   }
+  
+//   return FALSE;
+// }
 
 /**
   Reads firmware configuration bytes into a buffer
@@ -52,6 +133,20 @@ InternalQemuFwCfgReadBytes (
   IN VOID   *Buffer  OPTIONAL
   )
 {
+  EFI_STATUS Status;
+
+  Status = EFI_NOT_FOUND;
+
+  if (QemuFwCfgCacheEnable() && !QemuFwCfgSkipCache()) {
+    DEBUG ((DEBUG_INFO, "%a: QemuFwCfgCacheEnable\n", __func__));
+    Status = InternalQemuFwCfgCacheBytes((UINT32)Size, Buffer);
+  }
+
+  if (Status == EFI_SUCCESS) {
+    DEBUG ((DEBUG_INFO, "%a: Found in Cache\n", __func__));
+    return;
+  }
+
   if (InternalQemuFwCfgDmaIsAvailable () && (Size <= MAX_UINT32)) {
     InternalQemuFwCfgDmaBytes ((UINT32)Size, Buffer, FW_CFG_DMA_CTL_READ);
     return;
@@ -260,8 +355,23 @@ QemuFwCfgFindFile (
     return RETURN_UNSUPPORTED;
   }
 
+  DEBUG((DEBUG_INFO, "%a: Find %a\n", __func__, Name));
+
+  RETURN_STATUS Status;
+  Status = RETURN_ABORTED;
+  if (QemuFwCfgCacheEnable()) {
+    DEBUG ((DEBUG_INFO, "%a: QemuFwCfgCacheEnable\n", __func__));
+    Status = QemuFwCfgItemInCacheList(Name, Item, Size);
+  }
+
+  if (Status == RETURN_SUCCESS){
+    return Status;
+  }
+
+
   QemuFwCfgSelectItem (QemuFwCfgItemFileDir);
   Count = SwapBytes32 (QemuFwCfgRead32 ());
+  // DEBUG ((DEBUG_INFO, "%a: Count is %d\n", __func__, Count));
 
   for (Idx = 0; Idx < Count; ++Idx) {
     UINT32  FileSize;
@@ -283,4 +393,63 @@ QemuFwCfgFindFile (
   }
 
   return RETURN_NOT_FOUND;
+}
+
+
+RETURN_STATUS
+QemuFwCfgItemInCacheList (
+  IN   CONST CHAR8 *Name,
+  OUT  FIRMWARE_CONFIG_ITEM  *Item,
+  OUT  UINTN                 *Size
+  )
+{
+  // UINT32 Index;
+  EFI_HOB_GUID_TYPE  *GuidHob;
+  VOID              *FwCfgData;
+  UINT32             HobSize;     
+
+  FW_CFG_INFO       *FwCfgInfo;
+  // FW_CFG_SELECT_INFO *FwCfgSelectInfo;
+  UINT8  *Ptr;
+  UINT32 ReservedSize;
+
+  DEBUG ((DEBUG_ERROR, "[Sunce] QemuFwCfgItemInCacheList()\n"));
+
+  GuidHob = GetFirstGuidHob (&gOvmfFwCfgInfoHobGuid);
+  if (GuidHob == NULL) {
+    DEBUG ((DEBUG_ERROR, "[Sunce] GuidHob is NULL\n"));
+    return RETURN_ABORTED;
+  }
+
+  FwCfgData = (VOID *)GET_GUID_HOB_DATA (GuidHob);
+  HobSize   = GET_GUID_HOB_DATA_SIZE(GuidHob);
+
+  if (HobSize < (sizeof(FW_CFG_INFO) + sizeof(FW_CFG_SELECT_INFO))){
+    DEBUG ((DEBUG_ERROR, "[Sunce] HobSize not correct\n"));
+    return RETURN_ABORTED;
+  }
+
+  ReservedSize = HobSize;
+
+  Ptr = FwCfgData + sizeof(FW_CFG_SELECT_INFO);
+  while (ReservedSize <= HobSize ){
+    FwCfgInfo = (FW_CFG_INFO *)Ptr;
+    if (AsciiStrCmp (Name, FwCfgInfo->FileName) == 0) {
+      *Item = FwCfgInfo->FwCfgItem;
+      *Size = FwCfgInfo->DataSize;
+      DEBUG ((DEBUG_INFO, "%a: found in FwCfg Cache\n", __func__));
+      return RETURN_SUCCESS;
+    }else {
+      Ptr += sizeof(FW_CFG_INFO) + FwCfgInfo->DataSize;
+    }
+    ReservedSize -= sizeof(FW_CFG_INFO) + FwCfgInfo->DataSize;
+    if (ReservedSize <= 0){
+      break;
+    }
+    
+  }
+
+  DEBUG ((DEBUG_INFO, "%a: Not found in FwCfg Cache\n", __func__));
+  return RETURN_NOT_FOUND;
+
 }
