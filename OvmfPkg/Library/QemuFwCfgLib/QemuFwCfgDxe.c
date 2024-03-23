@@ -29,6 +29,9 @@ STATIC BOOLEAN  mQemuFwCfgDmaSupported;
 
 STATIC EDKII_IOMMU_PROTOCOL  *mIoMmuProtocol;
 
+
+STATIC FW_CFG_SELECT_INFO  mFwCfgSelectInfo;
+
 /**
   Returns a boolean indicating if the firmware configuration interface
   is available or not.
@@ -56,6 +59,23 @@ QemuFwCfgInitialize (
 {
   UINT32  Signature;
   UINT32  Revision;
+
+
+  EFI_HOB_GUID_TYPE  *GuidHob;
+  GuidHob = GetFirstGuidHob (&gOvmfFwCfgInfoHobGuid);
+  if (GuidHob == NULL) {
+    DEBUG ((DEBUG_ERROR, "[Sunce] GetFirstGuidHob(gOvmfFwCfgInfoHobGuid) in DXE is NULL\n"));
+    mFwCfgSelectInfo.CacheReady =  FALSE;
+  }  
+
+  FW_CFG_SELECT_INFO *FwCfgSelectInfo;
+  FwCfgSelectInfo = (FW_CFG_SELECT_INFO *)(VOID *)GET_GUID_HOB_DATA (GuidHob);
+  if (FwCfgSelectInfo->CacheReady){
+      mFwCfgSelectInfo.CacheReady  = TRUE;
+  }
+  mFwCfgSelectInfo.FwCfgItem = 0;
+  mFwCfgSelectInfo.Offset = 0;
+  mFwCfgSelectInfo.SkipCache = FALSE;
 
   //
   // Enable the access routines while probing to see if it is supported.
@@ -491,4 +511,98 @@ InternalQemuFwCfgDmaBytes (
   if (DataMapping != NULL) {
     UnmapFwCfgDmaDataBuffer (DataMapping);
   }
+}
+
+BOOLEAN
+QemuFwCfgCacheEnable (
+  VOID
+  )
+{
+
+  if (mFwCfgSelectInfo.CacheReady){
+    return TRUE;
+  }
+ 
+  return FALSE;
+}
+
+VOID
+InternalQemuFwCfgSelectItem (
+  IN     FIRMWARE_CONFIG_ITEM  Item
+  )
+{
+  if (Item == QemuFwCfgItemFileDir) {
+    mFwCfgSelectInfo.SkipCache = TRUE;
+  }else{
+    mFwCfgSelectInfo.SkipCache = FALSE;
+  }
+
+  mFwCfgSelectInfo.FwCfgItem = Item;
+  mFwCfgSelectInfo.Offset    = 0;
+}
+
+BOOLEAN
+QemuFwCfgSkipCache (
+  VOID
+  )
+{
+  if (mFwCfgSelectInfo.CacheReady == FALSE) {
+    return TRUE;
+  }
+
+  if (mFwCfgSelectInfo.SkipCache) {
+    return TRUE;
+  }
+  
+  return FALSE;
+}
+
+#include <Pi/PiBootMode.h>
+#include <Pi/PiHob.h>
+#include <Library/HobLib.h>
+EFI_STATUS
+InternalQemuFwCfgCacheBytes (
+  IN     UINT32  Size,
+  IN OUT VOID    *Buffer
+  )
+{
+  EFI_HOB_GUID_TYPE  *GuidHob;
+  VOID               *FwCfgData;
+  UINT32             HobSize;     
+  EFI_STATUS         Status;
+
+  FW_CFG_CACHE_INFO       *FwCfgInfo;
+
+  if (Buffer == NULL){
+    return EFI_INVALID_PARAMETER;
+  }
+
+  GuidHob = GetFirstGuidHob (&gOvmfFwCfgInfoHobGuid);
+  if (GuidHob == NULL) {
+    return RETURN_NOT_READY;
+  }
+
+  FwCfgData = (VOID *)GET_GUID_HOB_DATA (GuidHob);
+  HobSize   = GET_GUID_HOB_DATA_SIZE(GuidHob);
+
+  if (HobSize < (sizeof(FW_CFG_CACHE_INFO) + sizeof(FW_CFG_SELECT_INFO))){
+    DEBUG ((DEBUG_ERROR, "%a: Invalid HobSize. \n", __func__));
+    return RETURN_NOT_READY;
+  }
+
+  HobSize -= sizeof(FW_CFG_SELECT_INFO);
+
+  FwCfgData += sizeof(FW_CFG_SELECT_INFO);
+
+  Status = QemuFwCfgGetBytesFromCache(FwCfgData, HobSize, mFwCfgSelectInfo.FwCfgItem , Size, mFwCfgSelectInfo.Offset, Buffer);
+  if (EFI_ERROR(Status)) {
+    return RETURN_NOT_FOUND;
+  }
+
+  if (mFwCfgSelectInfo.Offset < FwCfgInfo->DataSize){
+     mFwCfgSelectInfo.Offset = Size;
+  }
+
+  DEBUG ((DEBUG_INFO, "%a: found in FwCfg Cache\n", __func__));
+  return RETURN_SUCCESS;
 }
