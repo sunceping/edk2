@@ -15,6 +15,8 @@
 #include <Library/DebugLib.h>
 #include <Library/QemuFwCfgLib.h>
 
+#include <PiPei.h>
+
 #include "QemuFwCfgLibInternal.h"
 
 /**
@@ -118,4 +120,164 @@ InternalQemuFwCfgDmaBytes (
   //
   ASSERT (FALSE);
   CpuDeadLoop ();
+}
+
+VOID
+InternalQemuFwCfgSelectItem (
+  IN     FIRMWARE_CONFIG_ITEM  Item
+  )
+{
+#ifdef TDX_PEI_LESS_BOOT
+
+  EFI_HOB_GUID_TYPE  *GuidHob;
+  GuidHob = GetFirstGuidHob (&gOvmfFwCfgInfoHobGuid);
+  if (GuidHob == NULL) {
+    ASSERT(FALSE);
+  }
+
+  FW_CFG_SELECT_INFO       *FwCfgSelectInfo;
+
+  FwCfgSelectInfo = (FW_CFG_SELECT_INFO *)(VOID *)GET_GUID_HOB_DATA (GuidHob);
+
+  if (Item == QemuFwCfgItemFileDir) {
+    FwCfgSelectInfo->SkipCache = TRUE;
+  }else{
+    FwCfgSelectInfo->SkipCache = FALSE;
+  }
+
+  FwCfgSelectInfo->FwCfgItem = Item;
+  FwCfgSelectInfo->Offset    = 0;
+#else
+  DEBUG ((DEBUG_INFO, "%a: It's only support for Pei less startup %r\n", __func__));
+  return;
+#endif
+}
+
+EFI_STATUS
+InternalQemuFwCfgCacheBytes (
+  IN     UINT32  Size,
+  IN OUT VOID    *Buffer
+  )
+{
+#ifdef TDX_PEI_LESS_BOOT
+  EFI_HOB_GUID_TYPE  *GuidHob;
+  VOID              *FwCfgData;
+  UINT32             HobSize;     
+
+  FW_CFG_CACHE_INFO       *FwCfgInfo;
+  FW_CFG_SELECT_INFO *FwCfgSelectInfo;
+  UINT8  *Ptr;
+  UINT32 ReservedSize;
+
+  DEBUG ((DEBUG_INFO, "[Sunce] InternalQemuFwCfgCacheBytes() in SEC\n"));
+
+  if (Size == 0){
+    return EFI_INVALID_PARAMETER;
+  }
+  
+
+  GuidHob = GetFirstGuidHob (&gOvmfFwCfgInfoHobGuid);
+  if (GuidHob == NULL) {
+    DEBUG ((DEBUG_ERROR, "[Sunce] GuidHob is NULL\n"));
+    return RETURN_NOT_READY;
+  }
+
+  FwCfgData = (VOID *)GET_GUID_HOB_DATA (GuidHob);
+  HobSize   = GET_GUID_HOB_DATA_SIZE(GuidHob);
+
+  if (HobSize < (sizeof(FW_CFG_CACHE_INFO) + sizeof(FW_CFG_SELECT_INFO))){
+    DEBUG ((DEBUG_ERROR, "[Sunce] HobSize not correct\n"));
+    return RETURN_NOT_READY;
+  }
+
+  ReservedSize = HobSize - sizeof(FW_CFG_SELECT_INFO);
+  FwCfgSelectInfo = (FW_CFG_SELECT_INFO *)FwCfgData;
+
+  Ptr = FwCfgData + sizeof(FW_CFG_SELECT_INFO);
+  while (ReservedSize < HobSize ){
+    FwCfgInfo = (FW_CFG_CACHE_INFO *)Ptr;
+    if (FwCfgInfo->FwCfgItem == FwCfgSelectInfo->FwCfgItem){
+      Ptr +=sizeof(FW_CFG_CACHE_INFO);
+      if (FwCfgSelectInfo->Offset > FwCfgInfo->DataSize){
+        return EFI_OUT_OF_RESOURCES;
+      }
+      Ptr += FwCfgSelectInfo->Offset;
+      CopyMem(Buffer, Ptr, Size);
+      FwCfgSelectInfo->Offset = Size;
+      return RETURN_SUCCESS;
+    }else {
+      Ptr += sizeof(FW_CFG_CACHE_INFO) + FwCfgInfo->DataSize;
+    }
+    ReservedSize -= sizeof(FW_CFG_CACHE_INFO) + FwCfgInfo->DataSize;
+    if (ReservedSize <= sizeof(FW_CFG_CACHE_INFO)){
+      break;
+    }
+    
+  }
+
+ DEBUG ((DEBUG_INFO, "%a: Not found in FwCfg Cache\n", __func__));
+ return RETURN_NOT_FOUND;
+#else
+  DEBUG ((DEBUG_INFO, "%a: It's only support for Pei less startup %r\n", __func__));
+  return RETURN_UNSUPPORTED;
+#endif
+}
+
+#include <WorkArea.h>
+BOOLEAN
+QemuFwCfgCacheEnable (
+  VOID
+  )
+{
+#ifdef TDX_PEI_LESS_BOOT
+  TDX_WORK_AREA  *TdxWorkArea;
+
+  TdxWorkArea = (TDX_WORK_AREA *)(UINTN)FixedPcdGet32 (PcdOvmfWorkAreaBase);
+  if (TdxWorkArea == NULL || TdxWorkArea->SecTdxWorkArea.HobList == 0) {
+    return FALSE;
+  }
+
+  EFI_HOB_GUID_TYPE  *GuidHob;
+  GuidHob = GetFirstGuidHob (&gOvmfFwCfgInfoHobGuid);
+  if (GuidHob == NULL) {
+    return FALSE;
+  }  
+
+  FW_CFG_SELECT_INFO *FwCfgSelectInfo;
+  FwCfgSelectInfo = (FW_CFG_SELECT_INFO *)(VOID *)GET_GUID_HOB_DATA (GuidHob);
+  if (FwCfgSelectInfo->CacheReady){
+      return TRUE;
+  }
+  
+  return FALSE;
+#else
+  DEBUG ((DEBUG_INFO, "%a: It's only support for Pei less startup %r\n", __func__));
+  return FALSE;
+#endif
+}
+
+
+BOOLEAN
+QemuFwCfgSkipCache (
+  VOID
+  )
+{
+#ifdef TDX_PEI_LESS_BOOT
+  EFI_HOB_GUID_TYPE  *GuidHob;
+  GuidHob = GetFirstGuidHob (&gOvmfFwCfgInfoHobGuid);
+  if (GuidHob == NULL) {
+    return TRUE;
+  }  
+
+  FW_CFG_SELECT_INFO *FwCfgSelectInfo;
+  FwCfgSelectInfo = (FW_CFG_SELECT_INFO *)(VOID *)GET_GUID_HOB_DATA (GuidHob);
+  if (FwCfgSelectInfo->SkipCache){
+      return TRUE;
+  }
+  
+  return FALSE;
+#else
+  DEBUG ((DEBUG_INFO, "%a: It's only support for Pei less startup %r\n", __func__));
+  return TRUE;
+#endif
 }

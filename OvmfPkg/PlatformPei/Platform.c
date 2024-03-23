@@ -316,6 +316,12 @@ InitializePlatform (
     TdxHelperBuildGuidHobForTdxMeasurement ();
   }
 
+  Status = PlatformInitFwCfgInfo();
+  if (EFI_ERROR(Status)){
+    DEBUG ((DEBUG_INFO, "PlatformInitFwCfgInfo Failed with %r\n", Status));
+    ASSERT(FALSE);
+  }
+
  #endif
 
   PlatformInfoHob->SmmSmramRequire     = FeaturePcdGet (PcdSmmSmramRequire);
