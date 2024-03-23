@@ -164,4 +164,22 @@ QemuFwCfgFindFile (
   OUT  UINTN                 *Size
   );
 
+#pragma pack(1)
+typedef struct {
+  FIRMWARE_CONFIG_ITEM FwCfgItem;
+  UINT32 DataSize;
+  //UINT8  *data
+} FW_CFG_INFO;
+
+#pragma pack()
+
+
+RETURN_STATUS
+EFIAPI
+QemuFwCfgGetDataFromCache (
+  IN   CONST CHAR8  *FileName,
+  OUT  UINTN  *Size,
+  OUT  UINT8  *Buffer
+  );
+
 #endif

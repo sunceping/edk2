@@ -344,6 +344,27 @@ PlatformScanE820 (
     return PlatformScanE820Pvh (Callback, PlatformInfoHob);
   }
 
+  if (TdIsEnabled ()) {
+      UINT8  *Buffer;
+      EFI_E820_ENTRY64      *E820EntryPtr;
+
+      Status = QemuFwCfgGetDataFromCache("etc/e820", &FwCfgSize , Buffer);
+      if (EFI_ERROR (Status) || Buffer == NULL) {
+        return Status;
+      }
+
+      if (FwCfgSize % sizeof E820Entry != 0) {
+        return EFI_PROTOCOL_ERROR;
+      }
+
+      for (Processed = 0; Processed < FwCfgSize; Processed += sizeof E820Entry) {
+        E820EntryPtr = (EFI_E820_ENTRY64 *)(Buffer + Processed);
+        Callback (E820EntryPtr, PlatformInfoHob);
+      }
+
+      return EFI_SUCCESS;
+  }
+
   Status = QemuFwCfgFindFile ("etc/e820", &FwCfgItem, &FwCfgSize);
   if (EFI_ERROR (Status)) {
     return Status;

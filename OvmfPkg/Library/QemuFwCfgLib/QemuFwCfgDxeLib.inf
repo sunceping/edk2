@@ -48,5 +48,8 @@
 [Protocols]
   gEdkiiIoMmuProtocolGuid                         ## SOMETIMES_CONSUMES
 
+[Guids]
+  gOvmfFwCfgInfoHobGuid
+
 [Depex]
   gEdkiiIoMmuProtocolGuid OR gIoMmuAbsentProtocolGuid

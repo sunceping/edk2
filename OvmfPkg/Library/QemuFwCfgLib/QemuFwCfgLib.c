@@ -284,3 +284,118 @@ QemuFwCfgFindFile (
 
   return RETURN_NOT_FOUND;
 }
+
+
+VOID
+InternalDumpData (
+  IN UINT8  *Data,
+  IN UINTN  Size
+  )
+{
+  UINTN  Index;
+
+  for (Index = 0; Index < Size; Index++) {
+    DEBUG ((DEBUG_INFO, "%02x", (UINTN)Data[Index]));
+  }
+}
+
+/**
+
+  This function dump raw data with colume format.
+
+  @param  Data  raw data
+  @param  Size  raw data size
+
+**/
+VOID
+InternalDumpHex (
+  IN UINT8  *Data,
+  IN UINTN  Size
+  )
+{
+  UINTN  Index;
+  UINTN  Count;
+  UINTN  Left;
+
+  #define COLUME_SIZE  (16 * 2)
+
+  Count = Size / COLUME_SIZE;
+  Left  = Size % COLUME_SIZE;
+  for (Index = 0; Index < Count; Index++) {
+    DEBUG ((DEBUG_INFO, "%04x: ", Index * COLUME_SIZE));
+    InternalDumpData (Data + Index * COLUME_SIZE, COLUME_SIZE);
+    DEBUG ((DEBUG_INFO, "\n"));
+  }
+
+  if (Left != 0) {
+    DEBUG ((DEBUG_INFO, "%04x: ", Index * COLUME_SIZE));
+    InternalDumpData (Data + Index * COLUME_SIZE, Left);
+    DEBUG ((DEBUG_INFO, "\n"));
+  }
+}
+
+#include <Pi/PiBootMode.h>
+#include <Pi/PiHob.h>
+#include <Library/HobLib.h>
+RETURN_STATUS
+EFIAPI
+QemuFwCfgGetDataFromCache (
+  IN   CONST CHAR8  *FileName,
+  OUT  UINTN  *Size,
+  OUT  UINT8  *Buffer
+  )
+{
+  EFI_HOB_GUID_TYPE  *GuidHob;
+  VOID              *FwCfgData;
+  UINT32             HobSize;     
+
+  if (FileName == NULL || Size == NULL){
+    return RETURN_INVALID_PARAMETER;
+  }
+
+  FW_CFG_INFO       *FwCfgInfo;
+  UINT8  *Ptr;
+  UINT32 ReservedSize;
+
+  FIRMWARE_CONFIG_ITEM Item;
+
+  if (RETURN_ERROR(QemuFwCfgFindFile(FileName, &Item, Size))){
+        return EFI_NOT_FOUND;
+  }
+
+  GuidHob = GetFirstGuidHob (&gOvmfFwCfgInfoHobGuid);
+  if (GuidHob == NULL) {
+    return RETURN_NOT_READY;
+  }
+
+  FwCfgData = (VOID *)GET_GUID_HOB_DATA (GuidHob);
+  HobSize   = GET_GUID_HOB_DATA_SIZE(GuidHob);
+
+  DEBUG ((DEBUG_INFO, "[Sunce] Dump the Hob\n"));
+  InternalDumpHex(FwCfgData, HobSize);
+
+  if (HobSize < sizeof(FW_CFG_INFO)){
+    return RETURN_NOT_READY;
+  }
+
+  ReservedSize = HobSize;
+  Ptr = FwCfgData;
+  while (ReservedSize <= HobSize ){
+    FwCfgInfo = (FW_CFG_INFO *)Ptr;
+    if (FwCfgInfo->FwCfgItem == Item && FwCfgInfo->DataSize == *Size){
+      Ptr +=sizeof(FW_CFG_INFO);
+      Buffer = Ptr;
+      return RETURN_SUCCESS;
+    }else {
+      Ptr += sizeof(FW_CFG_INFO) + FwCfgInfo->DataSize;
+    }
+    ReservedSize -= sizeof(FW_CFG_INFO) + FwCfgInfo->DataSize;
+    if (ReservedSize <= 0){
+      break;
+    }
+    
+  }
+
+ DEBUG ((DEBUG_INFO, "%a: Not found in FwCfg Cache\n", __func__));
+ return RETURN_NOT_FOUND;
+}
