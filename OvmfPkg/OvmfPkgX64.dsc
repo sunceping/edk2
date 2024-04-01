@@ -33,6 +33,7 @@
   DEFINE SMM_REQUIRE             = FALSE
   DEFINE SOURCE_DEBUG_ENABLE     = FALSE
   DEFINE CC_MEASUREMENT_ENABLE   = FALSE
+  DEFINE LEVEL_V_PAGING_ENABLE   = FALSE
 
 !include OvmfPkg/Include/Dsc/OvmfTpmDefines.dsc.inc
 
@@ -594,6 +595,10 @@
   #
   # TDX need 1G PageTable support
   gEfiMdeModulePkgTokenSpaceGuid.PcdUse1GPageTable|TRUE
+
+!if $(LEVEL_V_PAGING_ENABLE) == TRUE
+  gEfiMdeModulePkgTokenSpaceGuid.PcdUse5LevelPageTable|TRUE
+!endif
 
   #
   # Network Pcds

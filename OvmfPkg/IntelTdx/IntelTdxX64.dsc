@@ -31,6 +31,8 @@
   #
   DEFINE SECURE_BOOT_ENABLE      = FALSE
 
+  DEFINE LEVEL_V_PAGING_ENABLE   = FALSE
+
   #
   # Shell can be useful for debugging but should not be enabled for production
   #
@@ -451,6 +453,12 @@
   #
   # TDX need 1G PageTable support
   gEfiMdeModulePkgTokenSpaceGuid.PcdUse1GPageTable|TRUE
+
+!if $(LEVEL_V_PAGING_ENABLE) == TRUE
+  gEfiMdeModulePkgTokenSpaceGuid.PcdUse5LevelPageTable|TRUE
+!else
+  gEfiMdeModulePkgTokenSpaceGuid.PcdUse5LevelPageTable|FALSE
+!endif
 
   gEfiShellPkgTokenSpaceGuid.PcdShellFileOperationSize|0x20000
 
