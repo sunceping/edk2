@@ -70,6 +70,15 @@ SecMtrrSetup (
 
   DefType.Uint64    = AsmReadMsr64 (MSR_IA32_MTRR_DEF_TYPE);
   DefType.Bits.Type = MSR_IA32_MTRR_CACHE_WRITE_BACK;
+
+  if (CcProbe () == CcGuestTypeIntelTdx)
+  {
+    DefType.Bits.E  = 0; /* MTRR disabled */
+    DefType.Bits.FE = 0; 
+    AsmWriteMsr64 (MSR_IA32_MTRR_DEF_TYPE, DefType.Uint64);
+    return;
+  }
+
   DefType.Bits.E    = 1; /* enable */
   AsmWriteMsr64 (MSR_IA32_MTRR_DEF_TYPE, DefType.Uint64);
 }
