@@ -154,6 +154,18 @@ PlatformTdxPublishRamRegions (
   TransferTdxHobList ();
 
   //
+  // Reserve the initial page tables built by the reset vector code.
+  //
+  // Since this memory range will be used by APs on Mailbox
+  // wakeup, it must be reserved as ACPI NVS.
+  //
+  BuildMemoryAllocationHob (
+    (EFI_PHYSICAL_ADDRESS)(UINTN)PcdGet32 (PcdOvmfSecPageTablesBase),
+    (UINT64)(UINTN)PcdGet32 (PcdOvmfSecPageTablesSize),
+    EfiACPIMemoryNVS
+    );
+
+  //
   // The memory region defined by PcdOvmfSecGhcbBackupBase is pre-allocated by
   // host VMM and used as the td mailbox at the beginning of system boot.
   //
@@ -174,10 +186,13 @@ PlatformTdxPublishRamRegions (
     // work area. We ought to prevent DXE from serving allocation requests
     // such that they would overlap the work area.
     //
+    // Since this memory range will be used by the Reset Vector on Maibox
+    // wakeup again, it must be reserved as ACPI NVS.
+    //
     BuildMemoryAllocationHob (
       (EFI_PHYSICAL_ADDRESS)(UINTN)FixedPcdGet32 (PcdOvmfWorkAreaBase),
       (UINT64)(UINTN)FixedPcdGet32 (PcdOvmfWorkAreaSize),
-      EfiBootServicesData
+      EfiACPIMemoryNVS
       );
   }
 }
