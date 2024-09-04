@@ -85,7 +85,7 @@ QemuFwCfgIsTdxGuest (
   @retval  Others        - As the error code indicates
 **/
 EFI_STATUS
-QemuFwCfgCacheReadBytes (
+InternalQemuFwCfgCacheReadBytes (
   IN     UINTN  Size,
   IN OUT VOID   *Buffer
   );
@@ -100,7 +100,7 @@ QemuFwCfgCacheReadBytes (
   @retval       FALSE   The fw_cfg item is not selected.
 **/
 BOOLEAN
-QemuFwCfgCacheSelectItem (
+InternalQemuFwCfgCacheSelectItem (
   IN  FIRMWARE_CONFIG_ITEM  Item
   );
 
@@ -112,7 +112,7 @@ QemuFwCfgCacheSelectItem (
   @retval   NULL                FW_CFG_CACHE_WORK_AREA doesn't exist
 **/
 FW_CFG_CACHE_WORK_AREA *
-QemuFwCfgCacheGetWorkArea (
+InternalQemuFwCfgCacheGetWorkArea (
   VOID
   );
 
@@ -120,7 +120,7 @@ QemuFwCfgCacheGetWorkArea (
   Clear the FW_CFG_CACHE_WORK_AREA.
 **/
 VOID
-QemuFwCfgCacheResetWorkArea (
+InternalQemuFwCfgCacheResetWorkArea (
   VOID
   );
 
@@ -131,7 +131,7 @@ QemuFwCfgCacheResetWorkArea (
   @retval    FALSE  Cache is not ready
 **/
 BOOLEAN
-QemuFwCfgCacheEnable (
+InternalQemuFwCfgCacheEnable (
   VOID
   );
 
@@ -144,7 +144,7 @@ QemuFwCfgCacheEnable (
   @retval    NULL                The fw_cfg item is not cached.
 **/
 FW_CFG_CACHED_ITEM *
-QemuFwCfgItemCached (
+InternalQemuFwCfgItemCached (
   IN FIRMWARE_CONFIG_ITEM  Item
   );
 
@@ -155,7 +155,7 @@ QemuFwCfgItemCached (
   @retval   FALSE Reading from FwCfgCache is not ongoing.
 **/
 BOOLEAN
-QemuFwCfgCacheReading (
+InternalQemuFwCfgCacheReading (
   VOID
   );
 
@@ -166,7 +166,7 @@ QemuFwCfgCacheReading (
   @retval    NULL               There is no cached item.
 **/
 FW_CFG_CACHED_ITEM *
-QemuFwCfgCacheFirstItem (
+InternalQemuFwCfgCacheFirstItem (
   VOID
   );
 
@@ -177,7 +177,7 @@ QemuFwCfgCacheFirstItem (
   @retval    FALSE  The item not in cache.
 **/
 RETURN_STATUS
-QemuFwCfgItemInCacheList (
+InternalQemuFwCfgItemInCacheList (
   IN  CONST  CHAR8                 *Name,
   OUT        FIRMWARE_CONFIG_ITEM  *Item,
   OUT        UINTN                 *Size

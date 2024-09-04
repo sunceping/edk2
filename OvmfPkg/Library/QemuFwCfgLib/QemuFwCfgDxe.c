@@ -502,7 +502,7 @@ InternalQemuFwCfgDmaBytes (
   @retval    FALSE  Cache is not ready
 **/
 BOOLEAN
-QemuFwCfgCacheEnable (
+InternalQemuFwCfgCacheEnable (
   VOID
   )
 {
@@ -526,11 +526,11 @@ QemuFwCfgCacheEnable (
   @retval   NULL                FW_CFG_CACHE_WORK_AREA doesn't exist
 **/
 FW_CFG_CACHE_WORK_AREA *
-QemuFwCfgCacheGetWorkArea (
+InternalQemuFwCfgCacheGetWorkArea (
   VOID
   )
 {
-  if (!QemuFwCfgCacheEnable ()) {
+  if (!InternalQemuFwCfgCacheEnable ()) {
     return NULL;
   }
 

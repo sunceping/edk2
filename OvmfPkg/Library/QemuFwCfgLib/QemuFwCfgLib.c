@@ -36,10 +36,10 @@ QemuFwCfgSelectItem (
 {
   DEBUG ((DEBUG_INFO, "Select Item: 0x%x\n", (UINT16)(UINTN)QemuFwCfgItem));
 
-  if(QemuFwCfgCacheSelectItem (QemuFwCfgItem)) {
+  if(InternalQemuFwCfgCacheSelectItem (QemuFwCfgItem)) {
     return;
   } else {
-    QemuFwCfgCacheResetWorkArea();
+    InternalQemuFwCfgCacheResetWorkArea();
   }
 
   IoWrite16 (FW_CFG_IO_SELECTOR, (UINT16)(UINTN)QemuFwCfgItem);
@@ -59,8 +59,8 @@ InternalQemuFwCfgReadBytes (
   IN VOID   *Buffer  OPTIONAL
   )
 {
-  if (QemuFwCfgCacheEnable () && QemuFwCfgCacheReading()) {
-    QemuFwCfgCacheReadBytes (Size, Buffer);
+  if (InternalQemuFwCfgCacheEnable () && InternalQemuFwCfgCacheReading()) {
+    InternalQemuFwCfgCacheReadBytes (Size, Buffer);
     return;
   }
 
@@ -272,7 +272,7 @@ QemuFwCfgFindFile (
     return RETURN_UNSUPPORTED;
   }
 
-  if (!EFI_ERROR (QemuFwCfgItemInCacheList (Name, Item, Size))) {
+  if (!EFI_ERROR (InternalQemuFwCfgItemInCacheList (Name, Item, Size))) {
     return RETURN_SUCCESS;
   }
 

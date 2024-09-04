@@ -251,13 +251,13 @@ InternalQemuFwCfgDmaBytes (
   @retval   NULL                FW_CFG_CACHE_WORK_AREA doesn't exist
 **/
 FW_CFG_CACHE_WORK_AREA *
-QemuFwCfgCacheGetWorkArea (
+InternalQemuFwCfgCacheGetWorkArea (
   VOID
   )
 {
   EFI_HOB_GUID_TYPE  *GuidHob;
 
-  if (!QemuFwCfgCacheEnable ()) {
+  if (!InternalQemuFwCfgCacheEnable ()) {
     return NULL;
   }
 
@@ -274,7 +274,7 @@ QemuFwCfgCacheGetWorkArea (
   @retval    FALSE  Cache is not ready
 **/
 BOOLEAN
-QemuFwCfgCacheEnable (
+InternalQemuFwCfgCacheEnable (
   VOID
   )
 {

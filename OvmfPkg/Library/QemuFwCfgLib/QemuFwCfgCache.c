@@ -24,7 +24,7 @@
   @retval    NULL                The fw_cfg item is not cached.
 **/
 FW_CFG_CACHED_ITEM *
-QemuFwCfgItemCached (
+InternalQemuFwCfgItemCached (
   IN FIRMWARE_CONFIG_ITEM  Item
   )
 {
@@ -35,7 +35,7 @@ QemuFwCfgItemCached (
   EFI_HOB_GUID_TYPE   *GuidHob;
   UINT32              CachedItemSize;
 
-  if (!QemuFwCfgCacheEnable ()) {
+  if (!InternalQemuFwCfgCacheEnable ()) {
     return NULL;
   }
 
@@ -46,7 +46,7 @@ QemuFwCfgItemCached (
   Offset  = sizeof (EFI_HOB_GUID_TYPE) + sizeof (FW_CFG_CACHE_WORK_AREA);
   ASSERT (Offset < HobSize);
 
-  CachedItem = QemuFwCfgCacheFirstItem ();
+  CachedItem = InternalQemuFwCfgCacheFirstItem ();
 
   Cached = FALSE;
   while (Offset < HobSize) {
@@ -67,13 +67,13 @@ QemuFwCfgItemCached (
   Clear the FW_CFG_CACHE_WORK_AREA.
 **/
 VOID
-QemuFwCfgCacheResetWorkArea (
+InternalQemuFwCfgCacheResetWorkArea (
   VOID
   )
 {
   FW_CFG_CACHE_WORK_AREA  *FwCfgCacheWrokArea;
 
-  FwCfgCacheWrokArea = QemuFwCfgCacheGetWorkArea ();
+  FwCfgCacheWrokArea = InternalQemuFwCfgCacheGetWorkArea ();
   if (FwCfgCacheWrokArea != NULL) {
     FwCfgCacheWrokArea->FwCfgItem = 0;
     FwCfgCacheWrokArea->Offset    = 0;
@@ -88,7 +88,7 @@ QemuFwCfgCacheResetWorkArea (
   @retval   FALSE Reading from FwCfgCache is not ongoing.
 **/
 BOOLEAN
-QemuFwCfgCacheReading (
+InternalQemuFwCfgCacheReading (
   VOID
   )
 {
@@ -96,7 +96,7 @@ QemuFwCfgCacheReading (
   FW_CFG_CACHE_WORK_AREA  *FwCfgCacheWrokArea;
 
   Reading            = FALSE;
-  FwCfgCacheWrokArea = QemuFwCfgCacheGetWorkArea ();
+  FwCfgCacheWrokArea = InternalQemuFwCfgCacheGetWorkArea ();
   if (FwCfgCacheWrokArea != NULL) {
     Reading = FwCfgCacheWrokArea->Reading;
   }
@@ -105,18 +105,18 @@ QemuFwCfgCacheReading (
 }
 
 BOOLEAN
-QemuFwCfgCacheSelectItem (
+InternalQemuFwCfgCacheSelectItem (
   IN  FIRMWARE_CONFIG_ITEM  Item
   )
 {
   FW_CFG_CACHE_WORK_AREA  *FwCfgCacheWrokArea;
 
   // Walk thru cached fw_items to see if Item is cached.
-  if (QemuFwCfgItemCached (Item) == NULL) {
+  if (InternalQemuFwCfgItemCached (Item) == NULL) {
     return FALSE;
   }
 
-  FwCfgCacheWrokArea = QemuFwCfgCacheGetWorkArea ();
+  FwCfgCacheWrokArea = InternalQemuFwCfgCacheGetWorkArea ();
   ASSERT (FwCfgCacheWrokArea);
 
   FwCfgCacheWrokArea->FwCfgItem = Item;
@@ -133,7 +133,7 @@ QemuFwCfgCacheSelectItem (
   @retval    NULL               There is no cached item.
 **/
 FW_CFG_CACHED_ITEM *
-QemuFwCfgCacheFirstItem (
+InternalQemuFwCfgCacheFirstItem (
   VOID
   )
 {
@@ -141,7 +141,7 @@ QemuFwCfgCacheFirstItem (
   UINT16             HobSize;
   UINT16             Offset;
 
-  if (!QemuFwCfgCacheEnable ()) {
+  if (!InternalQemuFwCfgCacheEnable ()) {
     return NULL;
   }
 
@@ -165,7 +165,7 @@ QemuFwCfgCacheFirstItem (
   @retval  Others        - As the error code indicates
 **/
 EFI_STATUS
-QemuFwCfgCacheReadBytes (
+InternalQemuFwCfgCacheReadBytes (
   IN     UINTN  Size,
   IN OUT VOID   *Buffer
   )
@@ -178,7 +178,7 @@ QemuFwCfgCacheReadBytes (
     return EFI_INVALID_PARAMETER;
   }
 
-  FwCfgCacheWrokArea = QemuFwCfgCacheGetWorkArea ();
+  FwCfgCacheWrokArea = InternalQemuFwCfgCacheGetWorkArea ();
   if (FwCfgCacheWrokArea == NULL) {
     return RETURN_NOT_FOUND;
   }
@@ -187,7 +187,7 @@ QemuFwCfgCacheReadBytes (
     return RETURN_NOT_READY;
   }
 
-  CachedItem = QemuFwCfgItemCached (FwCfgCacheWrokArea->FwCfgItem);
+  CachedItem = InternalQemuFwCfgItemCached (FwCfgCacheWrokArea->FwCfgItem);
   if (CachedItem == NULL) {
     return RETURN_NOT_FOUND;
   }
@@ -206,7 +206,7 @@ QemuFwCfgCacheReadBytes (
 }
 
 RETURN_STATUS
-QemuFwCfgItemInCacheList (
+InternalQemuFwCfgItemInCacheList (
   IN   CONST CHAR8           *Name,
   OUT  FIRMWARE_CONFIG_ITEM  *Item,
   OUT  UINTN                 *Size
@@ -218,7 +218,7 @@ QemuFwCfgItemInCacheList (
   EFI_HOB_GUID_TYPE   *GuidHob;
   UINT32              CachedItemSize;
 
-  CachedItem = QemuFwCfgCacheFirstItem ();
+  CachedItem = InternalQemuFwCfgCacheFirstItem ();
   if (CachedItem == NULL) {
     return RETURN_NOT_FOUND;
   }

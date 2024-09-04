@@ -131,13 +131,13 @@ InternalQemuFwCfgDmaBytes (
   @retval   NULL                FW_CFG_CACHE_WORK_AREA doesn't exist
 **/
 FW_CFG_CACHE_WORK_AREA *
-QemuFwCfgCacheGetWorkArea (
+InternalQemuFwCfgCacheGetWorkArea (
   VOID
   )
 {
   EFI_HOB_GUID_TYPE  *GuidHob;
 
-  if (!QemuFwCfgCacheEnable ()) {
+  if (!InternalQemuFwCfgCacheEnable ()) {
     return NULL;
   }
 
@@ -154,7 +154,7 @@ QemuFwCfgCacheGetWorkArea (
   @retval    FALSE  Cache is not ready
 **/
 BOOLEAN
-QemuFwCfgCacheEnable (
+InternalQemuFwCfgCacheEnable (
   VOID
   )
 {
@@ -162,7 +162,7 @@ QemuFwCfgCacheEnable (
   FW_CFG_CACHE_WORK_AREA  *FwCfgCacheWrokArea;
   TDX_WORK_AREA           *TdxWorkArea;
 
-  // QemuFwCfgCacheEnable in QemuFwCfgSecLib might be called in a very early
+  // InternalQemuFwCfgCacheEnable in QemuFwCfgSecLib might be called in a very early
   // stage (at that moment HobList may not be set). So an additional check
   // to the HobList is needed.
   TdxWorkArea = (TDX_WORK_AREA *)(UINTN)FixedPcdGet32 (PcdOvmfWorkAreaBase);
