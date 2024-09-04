@@ -21,6 +21,8 @@
 #include <ConfidentialComputingGuestAttr.h>
 #include <Guid/MemoryTypeInformation.h>
 #include <OvmfPlatforms.h>
+#include <Base.h>
+#include <Library/QemuFwCfgLib.h>
 #include "PeilessStartupInternal.h"
 
 #define GET_GPAW_INIT_STATE(INFO)  ((UINT8) ((INFO) & 0x3f))
@@ -42,10 +44,14 @@ InitializePlatform (
   EFI_HOB_PLATFORM_INFO  *PlatformInfoHob
   )
 {
-  VOID  *VariableStore;
+  VOID        *VariableStore;
 
   DEBUG ((DEBUG_INFO, "InitializePlatform in Pei-less boot\n"));
   PlatformDebugDumpCmos ();
+
+  if (RETURN_ERROR(QemuFwCfgInitCache())) {
+    DEBUG((DEBUG_ERROR, "QemuFwCfgInitCache failed !\n"));
+  }
 
   PlatformInfoHob->DefaultMaxCpuNumber = 64;
   PlatformInfoHob->PcdPciMmio64Size    = 0x800000000;
