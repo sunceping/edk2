@@ -92,6 +92,7 @@ typedef struct {
   UINT32    Length;
   UINT64    Address;
 } FW_CFG_DMA_ACCESS;
+
 #pragma pack ()
 
 #endif
