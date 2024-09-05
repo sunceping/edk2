@@ -201,7 +201,7 @@ InternalQemuFwCfgCacheReadBytes (
   CopyMem (Buffer, (UINT8 *)CachedItem + sizeof (FW_CFG_CACHED_ITEM) + FwCfgCacheWrokArea->Offset, ReadSize);
   FwCfgCacheWrokArea->Offset += ReadSize;
 
-  DEBUG ((DEBUG_INFO, "%a: found in FwCfg Cache\n", __func__));
+  DEBUG ((DEBUG_INFO, "%a: found Item 0x%x in FwCfg Cache\n", __func__, FwCfgCacheWrokArea->FwCfgItem));
   return RETURN_SUCCESS;
 }
 
@@ -243,4 +243,117 @@ InternalQemuFwCfgItemInCacheList (
   }
 
   return RETURN_NOT_FOUND;
+}
+
+EFI_STATUS
+IntelnalQemuFwCfgInitCache (
+  VOID
+  )
+{
+  UINTN                 TotalSize;
+  UINT32                Index;
+  UINT32                Count;
+  UINTN                 FwCfgSize;
+  FIRMWARE_CONFIG_ITEM  FwCfgItem;
+  CACHE_FW_CFG_STRCUT   CacheFwCfgList[CACHE_FW_CFG_COUNT];
+  FW_CFG_CACHED_ITEM    *CachedItem;
+  UINT8                 *ItemData;
+  UINT8                 *FwCfhHobData;
+
+  CopyMem (CacheFwCfgList, mCacheFwCfgList, sizeof (mCacheFwCfgList));
+  Count     = CACHE_FW_CFG_COUNT;
+  TotalSize = 0;
+
+  for (Index = 0; Index < Count; Index++) {
+    if (EFI_ERROR (QemuFwCfgFindFile (CacheFwCfgList[Index].FileName, &FwCfgItem, &FwCfgSize))) {
+      continue;
+    }
+
+    if (FwCfgSize == 0) {
+      continue;
+    }
+
+    if ((CacheFwCfgList[Index].FwCfgSize != 0) && (FwCfgSize != CacheFwCfgList[Index].FwCfgSize)) {
+      continue;
+    }
+
+    CacheFwCfgList[Index].FwCfgItem = FwCfgItem;
+    CacheFwCfgList[Index].FwCfgSize = FwCfgSize;
+    TotalSize                      += (FwCfgSize + sizeof (FW_CFG_CACHED_ITEM));
+  }
+
+  DEBUG ((DEBUG_INFO, "%a: FW_CFG TotalSize is %d (Bytes)\n", __func__, TotalSize));
+
+  if (TotalSize < sizeof (FW_CFG_CACHED_ITEM)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  FwCfhHobData = BuildGuidHob (&gOvmfFwCfgInfoHobGuid, TotalSize + sizeof (FW_CFG_CACHE_WORK_AREA));
+  if (FwCfhHobData == NULL) {
+    DEBUG ((DEBUG_ERROR, "%a: BuildGuidHob Failed with TotalSize(0x%x)\n", __func__, TotalSize));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  ZeroMem (FwCfhHobData, TotalSize);
+
+  FW_CFG_CACHE_WORK_AREA  *FwCfgCacheWrokArea;
+
+  FwCfgCacheWrokArea             = (FW_CFG_CACHE_WORK_AREA *)FwCfhHobData;
+  FwCfgCacheWrokArea->CacheReady = FALSE;
+
+  CachedItem = (FW_CFG_CACHED_ITEM *)(FwCfhHobData + sizeof (FW_CFG_CACHE_WORK_AREA));
+
+  for (Index = 0; Index < Count; Index++) {
+    if (CacheFwCfgList[Index].FwCfgItem == INVALID_FW_CFG_ITEM) {
+      continue;
+    }
+
+    DEBUG (
+           (
+            DEBUG_INFO,
+            "%a: Name: %a Item:0x%x Size: 0x%x \n",
+            __func__,
+            CacheFwCfgList[Index].FileName,
+            CacheFwCfgList[Index].FwCfgItem,
+            CacheFwCfgList[Index].FwCfgSize
+           )
+           );
+    CachedItem->FwCfgItem = CacheFwCfgList[Index].FwCfgItem;
+    CachedItem->DataSize  = CacheFwCfgList[Index].FwCfgSize;
+    CopyMem (CachedItem->FileName, CacheFwCfgList[Index].FileName, QEMU_FW_CFG_FNAME_SIZE);
+
+    ItemData = (UINT8 *)CachedItem + sizeof (FW_CFG_CACHED_ITEM);
+
+    QemuFwCfgSelectItem (CacheFwCfgList[Index].FwCfgItem);
+    QemuFwCfgReadBytes (CacheFwCfgList[Index].FwCfgSize, ItemData);
+
+    if (CacheFwCfgList[Index].NeedMeasure == FALSE) {
+      CachedItem = (FW_CFG_CACHED_ITEM *)((UINT8 *)CachedItem +  sizeof (FW_CFG_CACHED_ITEM) + CachedItem->DataSize);
+      continue;
+    }
+
+    if (TdIsEnabled ()) {
+      FW_CFG_EVENT  FwCfgEvent;
+      EFI_STATUS    Status;
+
+      ZeroMem (&FwCfgEvent, sizeof (FW_CFG_EVENT));
+      CopyMem (&FwCfgEvent.FwCfg, EV_POSTCODE_INFO_QEMU_FW_CFG_DATA, sizeof (EV_POSTCODE_INFO_QEMU_FW_CFG_DATA));
+      CopyMem (&FwCfgEvent.FwCfgFileName, CacheFwCfgList[Index].FileName, QEMU_FW_CFG_FNAME_SIZE);
+
+      Status = TdxHelperMeasureFwCfgData (
+                                          (VOID *)&FwCfgEvent,
+                                          sizeof (FwCfgEvent),
+                                          (VOID *)ItemData,
+                                          CacheFwCfgList[Index].FwCfgSize
+                                          );
+      if (EFI_ERROR (Status)) {
+        DEBUG ((DEBUG_ERROR, "TdxHelperMeasureFwCfgData failed with %r\n", Status));
+      }
+    }
+
+    CachedItem = (FW_CFG_CACHED_ITEM *)((UINT8 *)CachedItem +  sizeof (FW_CFG_CACHED_ITEM) + CachedItem->DataSize);
+  }
+
+  FwCfgCacheWrokArea->CacheReady = TRUE;
+  return EFI_SUCCESS;
 }

@@ -536,3 +536,13 @@ InternalQemuFwCfgCacheGetWorkArea (
 
   return &mFwCfgCacheWorkArea;
 }
+
+
+RETURN_STATUS
+EFIAPI
+QemuFwCfgInitCache (
+  VOID
+  )
+{
+  return RETURN_UNSUPPORTED;
+}

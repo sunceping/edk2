@@ -19,6 +19,20 @@
 #include <Library/HobLib.h>
 #include <Library/BaseMemoryLib.h>
 
+typedef struct {
+  CHAR8                   FileName[QEMU_FW_CFG_FNAME_SIZE];
+  FIRMWARE_CONFIG_ITEM    FwCfgItem;
+  UINTN                   DataSize;
+  // UINT8  *data
+} FW_CFG_CACHED_ITEM;
+
+typedef struct {
+  BOOLEAN                 CacheReady;
+  FIRMWARE_CONFIG_ITEM    FwCfgItem;
+  UINTN                   Offset;
+  BOOLEAN                 Reading;
+} FW_CFG_CACHE_WORK_AREA;
+
 /**
   Returns a boolean indicating if the firmware configuration interface is
   available for library-internal purposes.
@@ -181,6 +195,77 @@ InternalQemuFwCfgItemInCacheList (
   IN  CONST  CHAR8                 *Name,
   OUT        FIRMWARE_CONFIG_ITEM  *Item,
   OUT        UINTN                 *Size
+  );
+
+#include <Library/TdxHelperLib.h>
+
+#define EV_POSTCODE_INFO_QEMU_FW_CFG_DATA  "QEMU FW CFG"
+#define QEMU_FW_CFG_SIZE                   sizeof (EV_POSTCODE_INFO_QEMU_FW_CFG_DATA)
+
+#define E820_FWCFG_FILE \
+        "etc/e820"
+
+#define SYSTEM_STATES_FWCFG_FILE \
+        "etc/system-states"
+
+#define EXTRA_PCI_ROOTS_FWCFG_FILE \
+        "etc/extra-pci-roots"
+
+#define EXTRA_PCI_ROOTS_FWCFG_SIZE  sizeof (UINT64)
+
+#define BOOT_MENU_WAIT_TIME_FWCFG_FILE \
+        "etc/boot-menu-wait"
+
+#define BOOT_MENU_WAIT_TIME_FWCFG_SIZE  sizeof (UINT16)
+
+#define RESERVED_MEMORY_END_FWCFG_FILE \
+        "etc/reserved-memory-end"
+
+#define RESERVED_MEMORY_END_FWCFG_SIZE  sizeof (UINT64)
+
+#define PCI_MMIO_FWCFG_FILE \
+        "opt/ovmf/X-PciMmio64Mb"
+
+#define BOOTORDER_FWCFG_FILE \
+        "bootorder"
+
+#define INVALID_FW_CFG_ITEM  0xFFFF
+
+#pragma pack(1)
+
+typedef struct {
+  CHAR8                   FileName[QEMU_FW_CFG_FNAME_SIZE];
+  BOOLEAN                 NeedMeasure;
+  FIRMWARE_CONFIG_ITEM    FwCfgItem;
+  UINTN                   FwCfgSize;
+} CACHE_FW_CFG_STRCUT;
+
+typedef struct {
+  UINT8    FwCfg[QEMU_FW_CFG_SIZE];
+  UINT8    FwCfgFileName[QEMU_FW_CFG_FNAME_SIZE];
+} FW_CFG_EVENT;
+
+#pragma pack()
+
+STATIC CONST CACHE_FW_CFG_STRCUT  mCacheFwCfgList[] = {
+  { E820_FWCFG_FILE,                FALSE, INVALID_FW_CFG_ITEM, 0                              },
+  { SYSTEM_STATES_FWCFG_FILE,       FALSE, INVALID_FW_CFG_ITEM, 0                              },
+  { EXTRA_PCI_ROOTS_FWCFG_FILE,     TRUE,  INVALID_FW_CFG_ITEM, EXTRA_PCI_ROOTS_FWCFG_SIZE     },
+  { BOOT_MENU_WAIT_TIME_FWCFG_FILE, TRUE,  INVALID_FW_CFG_ITEM, BOOT_MENU_WAIT_TIME_FWCFG_SIZE },
+  { RESERVED_MEMORY_END_FWCFG_FILE, TRUE,  INVALID_FW_CFG_ITEM, RESERVED_MEMORY_END_FWCFG_SIZE },
+  { PCI_MMIO_FWCFG_FILE,            TRUE,  INVALID_FW_CFG_ITEM, 0                              },
+  { BOOTORDER_FWCFG_FILE,           TRUE,  INVALID_FW_CFG_ITEM, 0                              },
+};
+
+#define CACHE_FW_CFG_COUNT  sizeof (mCacheFwCfgList)/sizeof (mCacheFwCfgList[0])
+
+/**
+  init the fw_cfg info hob with optional measurement
+
+**/
+EFI_STATUS
+IntelnalQemuFwCfgInitCache (
+  VOID
   );
 
 #endif

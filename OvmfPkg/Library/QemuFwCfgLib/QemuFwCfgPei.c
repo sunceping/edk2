@@ -289,3 +289,40 @@ InternalQemuFwCfgCacheEnable (
   FwCfgCacheWrokArea = (FW_CFG_CACHE_WORK_AREA *)GET_GUID_HOB_DATA (GuidHob);
   return FwCfgCacheWrokArea->CacheReady;
 }
+
+/**
+ OVMF reads configuration data from QEMU via fw_cfg.
+ For Td-Guest VMM is out of TCB and the configuration data is untrusted.
+ From the security perpective the configuration data shall be measured
+ before it is consumed.
+
+ This function reads the fw_cfg items and cached them. In the meanwhile these
+ fw_cfg items are measured as well. This is to avoid changing the order when
+ reading the fw_cfg process, which depends on multiple factors(depex, order in
+ the Firmware volume).
+
+ @retval  EFI_SUCCESS   - Successfully cache with measurement
+ @retval  Others        - As the error code indicates
+ */
+RETURN_STATUS
+EFIAPI
+QemuFwCfgInitCache (
+  VOID
+  )
+{
+  EFI_STATUS Status;
+
+  if (!QemuFwCfgIsAvailable ()) {
+    DEBUG ((DEBUG_ERROR, "%a: Qemu Fw_Cfg is not Available! \n", __func__));
+    return EFI_UNSUPPORTED;
+  }
+
+  Status = IntelnalQemuFwCfgInitCache();
+  if (EFI_ERROR(Status)) {
+    return Status;
+  }
+
+  DEBUG ((DEBUG_INFO, "QemuFwCfgInitCache Pass!!!\n"));
+  return EFI_SUCCESS;
+  
+}

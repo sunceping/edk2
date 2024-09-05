@@ -316,10 +316,8 @@ InitializePlatform (
     TdxHelperBuildGuidHobForTdxMeasurement ();
   }
 
-  Status = PlatformInitFwCfgCachedItems ();
-  if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_ERROR, "PlatformInitFwCfgCachedItems Failed!\n"));
-    return Status;
+  if (RETURN_ERROR(QemuFwCfgInitCache())) {
+    DEBUG((DEBUG_ERROR, "QemuFwCfgInitCache failed !\n"));
   }
 
   PlatformInfoHob->SmmSmramRequire     = FeaturePcdGet (PcdSmmSmramRequire);
