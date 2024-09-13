@@ -27,6 +27,7 @@
 
 [Packages]
   MdePkg/MdePkg.dec
+  CryptoPkg/CryptoPkg.dec
   MdeModulePkg/MdeModulePkg.dec
   SecurityPkg/SecurityPkg.dec
 

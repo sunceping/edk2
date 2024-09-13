@@ -99,6 +99,17 @@ IntelTdxInitialize (
   );
 
 /**
+  Install Tdx CC Measurement PPI for PEI measuremend .
+
+  @param[in] PeiServices  Describes the list of possible PEI Services.
+
+**/
+VOID
+TdxInstallCcMeasurementPpi (
+  VOID
+  );
+
+/**
  * @brief Builds PlatformInfo Hob
  */
 EFI_HOB_PLATFORM_INFO *

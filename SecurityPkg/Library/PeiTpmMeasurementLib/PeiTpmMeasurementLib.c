@@ -31,6 +31,8 @@ CcMeasureAndLogData (
   IN UINT64  HashDataLen
   )
 {
+  DEBUG ((DEBUG_ERROR, "CcMeasureAndLogData in PEI phase \n"));
+
   EFI_STATUS         Status;
   CC_EVENT_HDR       CcEventHdr;
   EFI_CC_MR_INDEX    MrIndex;
@@ -47,7 +49,7 @@ CcMeasureAndLogData (
   Status = CcPpi->HashLogExtendEvent (
                      CcPpi,
                      0,
-                     HashData,
+                     (EFI_PHYSICAL_ADDRESS)HashData,
                      (UINTN)HashDataLen,
                      &CcEventHdr,
                      EventLog
@@ -113,6 +115,8 @@ TpmMeasureAndLogData (
   EFI_STATUS         Status;
   EDKII_TCG_PPI      *TcgPpi;
   EDKII_CC_PPI       *CcPpi;
+  
+  DEBUG ((DEBUG_ERROR, "TpmMeasureAndLogData in PEI phase \n"));
 
   Status = PeiServicesLocatePpi (
              &gEdkiiCcPpiGuid,

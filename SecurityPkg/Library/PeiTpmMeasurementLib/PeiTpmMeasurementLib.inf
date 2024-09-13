@@ -47,4 +47,5 @@
   gEdkiiCcPpiGuid                                                      ## CONSUMES
 
 [Depex]
-  gEfiPeiMasterBootModePpiGuid
+  #gEfiPeiMasterBootModePpiGuid
+  TRUE

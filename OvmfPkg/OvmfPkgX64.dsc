@@ -781,15 +781,15 @@
   #
   # Cc Measurement Protocol for Td guest
   #
-!if $(CC_MEASUREMENT_ENABLE) == TRUE
-  OvmfPkg/Tcg/TdTcg2Pei/TdTcg2Pei.inf {
-    <LibraryClasses>
-      BaseCryptLib|CryptoPkg/Library/BaseCryptLib/PeiCryptLib.inf
-      TdxLib|MdePkg/Library/TdxLib/TdxLib.inf
-      # HashLib|OvmfPkg/Library/HashLibTdx/HashLibTdx.inf
-      # NULL|SecurityPkg/Library/HashInstanceLibSha384/HashInstanceLibSha384.inf
-  }
-!endif
+#!if $(CC_MEASUREMENT_ENABLE) == TRUE
+#  OvmfPkg/Tcg/TdTcg2Pei/TdTcg2Pei.inf {
+#    <LibraryClasses>
+#      BaseCryptLib|CryptoPkg/Library/BaseCryptLib/PeiCryptLib.inf
+#      TdxLib|MdePkg/Library/TdxLib/TdxLib.inf
+#      # HashLib|OvmfPkg/Library/HashLibTdx/HashLibTdx.inf
+#      # NULL|SecurityPkg/Library/HashInstanceLibSha384/HashInstanceLibSha384.inf
+#  }
+#!endif
 
 !include OvmfPkg/Include/Dsc/OvmfTpmComponentsPei.dsc.inc
 

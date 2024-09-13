@@ -219,6 +219,7 @@ TdxHashLogExtendEvent (
   EFI_STATUS  Status;
   UINT8       Digest[SHA384_DIGEST_SIZE];
   UINT32      MrIndex;
+  DEBUG ((DEBUG_INFO, "Sec::TdxHashLogExtendEvent ...\n"));
 
   if ((EventLog == NULL) || (HashData == NULL)) {
     return EFI_INVALID_PARAMETER;

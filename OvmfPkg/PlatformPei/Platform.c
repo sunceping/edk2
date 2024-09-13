@@ -313,6 +313,10 @@ InitializePlatform (
   PlatformInfoHob = BuildPlatformInfoHob ();
 
   if (TdIsEnabled ()) {
+    TdxInstallCcMeasurementPpi();
+  }
+
+  if (TdIsEnabled ()) {
     TdxHelperBuildGuidHobForTdxMeasurement ();
   }
 

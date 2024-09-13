@@ -36,6 +36,7 @@
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
   SecurityPkg/SecurityPkg.dec
+  CryptoPkg/CryptoPkg.dec
 
 [LibraryClasses]
   HobLib
@@ -45,14 +46,19 @@
   DebugLib
   PeiServicesTablePointerLib
   # HashLib
-  MemoryAllocationLib
   ReportStatusCodeLib
-  ResetSystemLib
   PrintLib
   TdxLib
+  BaseCryptLib
 
 [Ppis]
   gEdkiiCcPpiGuid
 
+[Guids]
+  gCcEventEntryHobGuid
+
 [UserExtensions.TianoCore."ExtraFiles"]
   TdTcg2PeiExtra.uni
+
+[Depex]
+  TRUE

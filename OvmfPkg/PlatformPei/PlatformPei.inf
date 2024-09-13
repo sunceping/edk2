@@ -42,6 +42,7 @@
   MdeModulePkg/MdeModulePkg.dec
   SecurityPkg/SecurityPkg.dec
   UefiCpuPkg/UefiCpuPkg.dec
+  CryptoPkg/CryptoPkg.dec
   OvmfPkg/OvmfPkg.dec
 
 [Guids]
@@ -71,6 +72,7 @@
   CcExitLib
   PlatformInitLib
   SmmRelocationLib
+  BaseCryptLib
 
 [Pcd]
   gUefiOvmfPkgTokenSpaceGuid.PcdOvmfPeiMemFvBase
@@ -148,6 +150,7 @@
   gEfiPeiMpServicesPpiGuid
   gEfiPeiReadOnlyVariable2PpiGuid
   gEdkiiPeiMpServices2PpiGuid
+  gEdkiiCcPpiGuid
 
 [Depex]
   TRUE

@@ -36,6 +36,8 @@
 [Packages]
   MdePkg/MdePkg.dec
   OvmfPkg/OvmfPkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  SecurityPkg/SecurityPkg.dec
 
 [LibraryClasses]
   BaseLib
@@ -44,6 +46,7 @@
   HobLib
   IoLib
   MemoryAllocationLib
+  TpmMeasurementLib
 
 [Guids]
   gUefiOvmfPkgPlatformInfoGuid

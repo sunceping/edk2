@@ -12,6 +12,9 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <Library/DebugLib.h>
 #include <Library/PeiServicesLib.h>
 #include <Library/TdxLib.h>
+#include <Library/BaseMemoryLib.h>
+#include <Library/BaseCryptLib.h>
+#include <Library/HobLib.h>
 
 BOOLEAN              mImageInMemory = FALSE;
 EFI_PEI_FILE_HANDLE  mFileHandle;
@@ -233,17 +236,17 @@ TdxPeiHashLogExtendEvent (
 EFI_STATUS
 EFIAPI
 TdHashLogExtendEvent (
-  IN      EDKII_CC_PPI     *This,
-  IN      UINT64           Flags,
+  IN EDKII_CC_PPI          *This,
+  IN UINT64                Flags,
   IN EFI_PHYSICAL_ADDRESS  DataToHash,
-  IN UINT64                DataToHashLen,
-  IN      CC_EVENT_HDR     *NewEventHdr,
-  IN      UINT8            *NewEventData
+  IN UINTN                 DataToHashLen,
+  IN CC_EVENT_HDR          *NewEventHdr,
+  IN UINT8                 *NewEventData
   )
 {
   EFI_STATUS  Status;
 
-  DEBUG ((DEBUG_VERBOSE, "TdHashLogExtendEvent ...\n"));
+  DEBUG ((DEBUG_INFO, "Pei::TdHashLogExtendEvent ...\n"));
 
   if ((This == NULL) || (NewEventHdr == NULL)) {
     return EFI_INVALID_PARAMETER;
@@ -350,6 +353,9 @@ PeimEntryMA (
 {
   EFI_STATUS  Status;
 
+  DEBUG ((DEBUG_INFO, "%a:: Begian.\n", __func__));
+
+
   if (!TdIsEnabled ()) {
     DEBUG ((DEBUG_INFO, "TD is not enabled.\n"));
     return EFI_UNSUPPORTED;
@@ -366,6 +372,7 @@ PeimEntryMA (
   if (mImageInMemory) {
     Status = PeimEntryMP ((EFI_PEI_SERVICES **)PeiServices);
   }
+  DEBUG ((DEBUG_INFO, "%a::PeimEntryMPs Status is %r.\n", __func__, Status));
 
   return Status;
 }

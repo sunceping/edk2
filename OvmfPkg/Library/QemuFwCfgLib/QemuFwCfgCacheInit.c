@@ -12,6 +12,9 @@
 #include "QemuFwCfgLibInternal.h"
 #include <Library/TdxHelperLib.h>
 #include <Library/PrintLib.h>
+#include <Library/TpmMeasurementLib.h>
+#include <IndustryStandard/UefiTcgPlatform.h>
+
 
 #define EV_POSTCODE_INFO_QEMU_FW_CFG_DATA  "QEMU FW CFG"
 #define QEMU_FW_CFG_SIZE                   sizeof (EV_POSTCODE_INFO_QEMU_FW_CFG_DATA)
@@ -165,14 +168,24 @@ InternalQemuFwCfgInitCache (
       CopyMem (&FwCfgEvent.FwCfg, EV_POSTCODE_INFO_QEMU_FW_CFG_DATA, sizeof (EV_POSTCODE_INFO_QEMU_FW_CFG_DATA));
       CopyMem (&FwCfgEvent.FwCfgFileName, CacheFwCfgList[Index].FileName, QEMU_FW_CFG_FNAME_SIZE);
 
-      Status = TdxHelperMeasureFwCfgData (
-                 (VOID *)&FwCfgEvent,
-                 sizeof (FwCfgEvent),
-                 (VOID *)ItemData,
-                 CacheFwCfgList[Index].FwCfgSize
-                 );
+      // Status = TdxHelperMeasureFwCfgData (
+      //            (VOID *)&FwCfgEvent,
+      //            sizeof (FwCfgEvent),
+      //            (VOID *)ItemData,
+      //            CacheFwCfgList[Index].FwCfgSize
+      //            );
+      // if (EFI_ERROR (Status)) {
+      //   DEBUG ((DEBUG_ERROR, "TdxHelperMeasureFwCfgData failed with %r\n", Status));
+      // }
+      Status = TpmMeasureAndLogData (
+                                    1,
+                                    EV_PLATFORM_CONFIG_FLAGS,
+                                    (VOID *)&FwCfgEvent,
+                                    sizeof(FwCfgEvent),
+                                    (VOID *)ItemData,
+                                    CacheFwCfgList[Index].FwCfgSize);
       if (EFI_ERROR (Status)) {
-        DEBUG ((DEBUG_ERROR, "TdxHelperMeasureFwCfgData failed with %r\n", Status));
+        DEBUG ((DEBUG_ERROR, "TpmMeasureAndLogData failed with %r\n", Status));
       }
     }
 

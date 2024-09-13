@@ -48,7 +48,7 @@ EFI_STATUS
 (EFIAPI *EDKII_CC_HASH_LOG_EXTEND_EVENT)(
   IN      EDKII_CC_PPI             *This,
   IN      UINT64                    Flags,
-  IN      UINT8                     *HashData,
+  IN      EFI_PHYSICAL_ADDRESS      HashData,
   IN      UINTN                     HashDataLen,
   IN      CC_EVENT_HDR              *NewEventHdr,
   IN      UINT8                     *NewEventData
