@@ -353,26 +353,14 @@ PeimEntryMA (
 {
   EFI_STATUS  Status;
 
-  DEBUG ((DEBUG_INFO, "%a:: Begian.\n", __func__));
-
-
   if (!TdIsEnabled ()) {
-    DEBUG ((DEBUG_INFO, "TD is not enabled.\n"));
     return EFI_UNSUPPORTED;
   }
 
-  Status = (**PeiServices).RegisterForShadow (FileHandle);
-  if (Status == EFI_ALREADY_STARTED) {
-    mImageInMemory = TRUE;
-    mFileHandle    = FileHandle;
-  } else if (Status == EFI_NOT_FOUND) {
-    ASSERT_EFI_ERROR (Status);
-  }
 
-  if (mImageInMemory) {
-    Status = PeimEntryMP ((EFI_PEI_SERVICES **)PeiServices);
-  }
-  DEBUG ((DEBUG_INFO, "%a::PeimEntryMPs Status is %r.\n", __func__, Status));
+  Status = PeiServicesInstallPpi (&mCcPpiList);
+
+  DEBUG ((DEBUG_INFO, "%a::CC Measurement PPI install Status is %r.\n", __func__, Status));
 
   return Status;
 }
