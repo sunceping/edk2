@@ -1,0 +1,723 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+        <meta charset="utf-8"/>
+	    <title>SpdmAuthentication.c</title>
+	    <link href="../../third-party/google-code-prettify/prettify-CppCoverage.css" type="text/css" rel="stylesheet" />
+	    <script type="text/javascript" src="../../third-party/google-code-prettify/prettify.js"></script>
+	</head>
+    <body onload="prettyPrint()">
+        <h4></h4>
+        <pre class="prettyprint lang-cpp linenums">
+/** @file
+  EDKII Device Security library for SPDM device.
+  It follows the SPDM Specification.
+
+Copyright (c) 2024, Intel Corporation. All rights reserved.&lt;BR&gt;
+SPDX-License-Identifier: BSD-2-Clause-Patent
+
+**/
+
+#include "SpdmSecurityLibInternal.h"
+
+/**
+  Measure and log an EFI variable, and extend the measurement result into a specific PCR.
+
+  @param[in]  PcrIndex          PCR Index.
+  @param[in]  EventType         Event type.
+  @param[in]  VarName           A Null-terminated string that is the name of the vendor's variable.
+  @param[in]  VendorGuid        A unique identifier for the vendor.
+  @param[in]  VarData           The content of the variable data.
+  @param[in]  VarSize           The size of the variable data.
+
+  @retval EFI_SUCCESS           Operation completed successfully.
+  @retval EFI_OUT_OF_RESOURCES  Out of memory.
+  @retval EFI_DEVICE_ERROR      The operation was unsuccessful.
+
+**/
+EFI_STATUS
+EFIAPI
+MeasureVariable (
+  IN      UINT32    PcrIndex,
+  IN      UINT32    EventType,
+  IN      CHAR16    *VarName,
+  IN      EFI_GUID  *VendorGuid,
+  IN      VOID      *VarData,
+  IN      UINTN     VarSize
+  )
+<span style = "background-color:#dfd">{</span>
+  EFI_STATUS          Status;
+  UINTN               VarNameLength;
+  UEFI_VARIABLE_DATA  *VarLog;
+  UINT32              VarLogSize;
+
+<span style = "background-color:#dfd">  if (!(((VarSize == 0) &amp;&amp; (VarData == NULL)) || ((VarSize != 0) &amp;&amp; (VarData != NULL)))) {</span>
+<span style = "background-color:#fdd">    ASSERT_EFI_ERROR (EFI_INVALID_PARAMETER);
+    return EFI_INVALID_PARAMETER;</span>
+  }
+
+<span style = "background-color:#dfd">  VarNameLength = StrLen (VarName);
+  VarLogSize    = (UINT32)(sizeof (*VarLog) + VarNameLength * sizeof (*VarName) + VarSize</span>
+                           - sizeof (VarLog-&gt;UnicodeName) - sizeof (VarLog-&gt;VariableData));
+
+<span style = "background-color:#dfd">  VarLog = (UEFI_VARIABLE_DATA *)AllocateZeroPool (VarLogSize);
+  if (VarLog == NULL) {</span>
+<span style = "background-color:#fdd">    return EFI_OUT_OF_RESOURCES;</span>
+  }
+
+<span style = "background-color:#dfd">  CopyMem (&amp;VarLog-&gt;VariableName, VendorGuid, sizeof (VarLog-&gt;VariableName));
+  VarLog-&gt;UnicodeNameLength  = VarNameLength;
+  VarLog-&gt;VariableDataLength = VarSize;
+  CopyMem (</span>
+    VarLog-&gt;UnicodeName,
+    VarName,
+    VarNameLength * sizeof (*VarName)
+    );
+<span style = "background-color:#dfd">  if (VarSize != 0) {
+    CopyMem (</span>
+      (CHAR16 *)VarLog-&gt;UnicodeName + VarNameLength,
+      VarData,
+      VarSize
+      );
+  }
+
+<span style = "background-color:#dfd">  DEBUG ((DEBUG_INFO, "VariableDxe: MeasureVariable (Pcr - %x, EventType - %x, ", (UINTN)PcrIndex, (UINTN)EventType));
+  DEBUG ((DEBUG_INFO, "VariableName - %s, VendorGuid - %g)\n", VarName, VendorGuid));</span>
+
+<span style = "background-color:#dfd">  Status = TpmMeasureAndLogData (</span>
+             PcrIndex,
+             EventType,
+             VarLog,
+             VarLogSize,
+             VarLog,
+             VarLogSize
+             );
+<span style = "background-color:#dfd">  FreePool (VarLog);
+  return Status;
+}</span>
+
+/**
+  Extend Certicate and auth state to NV Index and measure trust anchor to PCR.
+
+  @param[in]  SpdmDeviceContext          The SPDM context for the device.
+  @param[in]  AuthState                  The auth state of this deice.
+  @param[in]  CertChainSize              The size of cert chain.
+  @param[in]  CertChain                  A pointer to a destination buffer to store the certificate chain.
+  @param[in]  TrustAnchor                A buffer to hold the trust_anchor which is used to validate the peer
+                                         certificate, if not NULL.
+  @param[in]  TrustAnchorSize            A buffer to hold the trust_anchor_size, if not NULL..
+  @param[in]  SlotId                     The number of slot for the certificate chain.
+  @param[out]  SecurityState             A pointer to the security state of the requester.
+
+  @retval EFI_SUCCESS           Operation completed successfully.
+  @retval EFI_OUT_OF_RESOURCES  Out of memory.
+  @retval EFI_DEVICE_ERROR      The operation was unsuccessful.
+
+**/
+EFI_STATUS
+ExtendCertificate (
+  IN  SPDM_DEVICE_CONTEXT          *SpdmDeviceContext,
+  IN UINT8                         AuthState,
+  IN UINTN                         CertChainSize,
+  IN UINT8                         *CertChain,
+  IN VOID                          *TrustAnchor,
+  IN UINTN                         TrustAnchorSize,
+  IN UINT8                         SlotId,
+  OUT EDKII_DEVICE_SECURITY_STATE  *SecurityState
+  )
+<span style = "background-color:#dfd">{</span>
+  VOID                                                       *EventLog;
+  UINT32                                                     EventLogSize;
+  UINT8                                                      *EventLogPtr;
+  TCG_NV_INDEX_INSTANCE_EVENT_LOG_STRUCT                     *NvIndexInstance;
+  TCG_DEVICE_SECURITY_EVENT_DATA_HEADER2                     *EventData2;
+  TCG_DEVICE_SECURITY_EVENT_DATA_SUB_HEADER_SPDM_CERT_CHAIN  *TcgSpdmCertChain;
+  VOID                                                       *DeviceContext;
+  UINTN                                                      DeviceContextSize;
+  EFI_STATUS                                                 Status;
+  UINTN                                                      DevicePathSize;
+  UINT32                                                     BaseHashAlgo;
+  UINTN                                                      DataSize;
+  VOID                                                       *SpdmContext;
+  SPDM_DATA_PARAMETER                                        Parameter;
+  EFI_SIGNATURE_DATA                                         *SignatureData;
+  UINTN                                                      SignatureDataSize;
+
+<span style = "background-color:#dfd">  SpdmContext = SpdmDeviceContext-&gt;SpdmContext;</span>
+
+<span style = "background-color:#dfd">  EventLog = NULL;
+  ZeroMem (&amp;Parameter, sizeof (Parameter));
+  Parameter.location = SpdmDataLocationConnection;
+  DataSize           = sizeof (BaseHashAlgo);
+  Status             = SpdmGetData (SpdmContext, SpdmDataBaseHashAlgo, &amp;Parameter, &amp;BaseHashAlgo, &amp;DataSize);
+  ASSERT_EFI_ERROR (Status);</span>
+
+<span style = "background-color:#dfd">  DeviceContextSize = GetDeviceMeasurementContextSize (SpdmDeviceContext);
+  DevicePathSize    = GetDevicePathSize (SpdmDeviceContext-&gt;DevicePath);</span>
+
+<span style = "background-color:#dfd">  switch (AuthState) {</span>
+    case TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_AUTH_STATE_SUCCESS:
+    case TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_AUTH_STATE_NO_AUTH:
+    case TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_AUTH_STATE_NO_BINDING:
+<span style = "background-color:#dfd">      EventLogSize = (UINT32)(sizeof (TCG_NV_INDEX_INSTANCE_EVENT_LOG_STRUCT) +</span>
+                              sizeof (TCG_DEVICE_SECURITY_EVENT_DATA_HEADER2) +
+                              sizeof (UINT64) + DevicePathSize +
+                              sizeof (TCG_DEVICE_SECURITY_EVENT_DATA_SUB_HEADER_SPDM_CERT_CHAIN) +
+                              CertChainSize +
+                              DeviceContextSize);
+<span style = "background-color:#dfd">      EventLog = AllocatePool (EventLogSize);
+      if (EventLog == NULL) {</span>
+<span style = "background-color:#fdd">        SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_UEFI_OUT_OF_RESOURCE;
+        return EFI_OUT_OF_RESOURCES;</span>
+      }
+
+<span style = "background-color:#dfd">      EventLogPtr = EventLog;</span>
+
+<span style = "background-color:#dfd">      NvIndexInstance = (VOID *)EventLogPtr;
+      CopyMem (NvIndexInstance-&gt;Signature, TCG_NV_EXTEND_INDEX_FOR_INSTANCE_SIGNATURE, sizeof (TCG_NV_EXTEND_INDEX_FOR_INSTANCE_SIGNATURE));
+      NvIndexInstance-&gt;Version = TCG_NV_INDEX_INSTANCE_EVENT_LOG_STRUCT_VERSION;
+      ZeroMem (NvIndexInstance-&gt;Reserved, sizeof (NvIndexInstance-&gt;Reserved));
+      EventLogPtr += sizeof (TCG_NV_INDEX_INSTANCE_EVENT_LOG_STRUCT);</span>
+
+<span style = "background-color:#dfd">      EventData2 = (VOID *)EventLogPtr;
+      CopyMem (EventData2-&gt;Signature, TCG_DEVICE_SECURITY_EVENT_DATA_SIGNATURE_2, sizeof (EventData2-&gt;Signature));
+      EventData2-&gt;Version    = TCG_DEVICE_SECURITY_EVENT_DATA_VERSION_2;
+      EventData2-&gt;AuthState  = AuthState;
+      EventData2-&gt;Reserved   = 0;
+      EventData2-&gt;Length     = (UINT32)EventLogSize;
+      EventData2-&gt;DeviceType = GetSpdmDeviceType (SpdmDeviceContext);</span>
+
+<span style = "background-color:#dfd">      EventData2-&gt;SubHeaderType   = TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_SUB_HEADER_TYPE_SPDM_CERT_CHAIN;
+      EventData2-&gt;SubHeaderLength = (UINT32)(sizeof (TCG_DEVICE_SECURITY_EVENT_DATA_SUB_HEADER_SPDM_CERT_CHAIN) + CertChainSize);
+      EventData2-&gt;SubHeaderUID    = SpdmDeviceContext-&gt;DeviceUID;</span>
+
+<span style = "background-color:#dfd">      EventLogPtr = (VOID *)(EventData2 + 1);</span>
+
+<span style = "background-color:#dfd">      *(UINT64 *)EventLogPtr = (UINT64)DevicePathSize;
+      EventLogPtr           += sizeof (UINT64);
+      CopyMem (EventLogPtr, SpdmDeviceContext-&gt;DevicePath, DevicePathSize);
+      EventLogPtr += DevicePathSize;</span>
+
+<span style = "background-color:#dfd">      TcgSpdmCertChain               = (VOID *)EventLogPtr;
+      TcgSpdmCertChain-&gt;SpdmVersion  = SpdmDeviceContext-&gt;SpdmVersion;
+      TcgSpdmCertChain-&gt;SpdmSlotId   = SlotId;
+      TcgSpdmCertChain-&gt;Reserved     = 0;
+      TcgSpdmCertChain-&gt;SpdmHashAlgo = BaseHashAlgo;
+      EventLogPtr                   += sizeof (TCG_DEVICE_SECURITY_EVENT_DATA_SUB_HEADER_SPDM_CERT_CHAIN);</span>
+
+<span style = "background-color:#dfd">      CopyMem (EventLogPtr, CertChain, CertChainSize);
+      EventLogPtr += CertChainSize;</span>
+
+<span style = "background-color:#dfd">      if (DeviceContextSize != 0) {
+        DeviceContext = (VOID *)EventLogPtr;
+        Status        = CreateDeviceMeasurementContext (SpdmDeviceContext, DeviceContext, DeviceContextSize);
+        if (Status != EFI_SUCCESS) {</span>
+<span style = "background-color:#fdd">          SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_DEVICE_ERROR;
+          Status                             = EFI_DEVICE_ERROR;
+          goto Exit;</span>
+        }
+      }
+
+<span style = "background-color:#dfd">      Status = TpmMeasureAndLogData (</span>
+                 TCG_NV_EXTEND_INDEX_FOR_INSTANCE,
+                 EV_NO_ACTION,
+                 EventLog,
+                 EventLogSize,
+                 EventLog,
+                 EventLogSize
+                 );
+<span style = "background-color:#dfd">      if (EFI_ERROR (Status)) {</span>
+<span style = "background-color:#fdd">        SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_TCG_EXTEND_TPM_PCR;</span>
+      }
+
+<span style = "background-color:#dfd">      DEBUG ((DEBUG_INFO, "TpmMeasureAndLogData (Instance) - %r\n", Status));</span>
+
+<span style = "background-color:#dfd">      break;</span>
+    case TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_AUTH_STATE_FAIL_INVALID:
+<span style = "background-color:#dfd">      EventLogSize = (UINT32)(sizeof (TCG_NV_INDEX_INSTANCE_EVENT_LOG_STRUCT) +</span>
+                              sizeof (TCG_DEVICE_SECURITY_EVENT_DATA_HEADER2) +
+                              sizeof (UINT64) + DevicePathSize +
+                              sizeof (TCG_DEVICE_SECURITY_EVENT_DATA_SUB_HEADER_SPDM_CERT_CHAIN) +
+                              DeviceContextSize);
+<span style = "background-color:#dfd">      EventLog = AllocatePool (EventLogSize);
+      if (EventLog == NULL) {</span>
+<span style = "background-color:#fdd">        SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_UEFI_OUT_OF_RESOURCE;
+        return EFI_OUT_OF_RESOURCES;</span>
+      }
+
+<span style = "background-color:#dfd">      EventLogPtr = EventLog;</span>
+
+<span style = "background-color:#dfd">      NvIndexInstance = (VOID *)EventLogPtr;
+      CopyMem (NvIndexInstance-&gt;Signature, TCG_NV_EXTEND_INDEX_FOR_INSTANCE_SIGNATURE, sizeof (TCG_NV_EXTEND_INDEX_FOR_INSTANCE_SIGNATURE));
+      NvIndexInstance-&gt;Version = TCG_NV_INDEX_INSTANCE_EVENT_LOG_STRUCT_VERSION;
+      ZeroMem (NvIndexInstance-&gt;Reserved, sizeof (NvIndexInstance-&gt;Reserved));
+      EventLogPtr += sizeof (TCG_NV_INDEX_INSTANCE_EVENT_LOG_STRUCT);</span>
+
+<span style = "background-color:#dfd">      EventData2 = (VOID *)EventLogPtr;
+      CopyMem (EventData2-&gt;Signature, TCG_DEVICE_SECURITY_EVENT_DATA_SIGNATURE_2, sizeof (EventData2-&gt;Signature));
+      EventData2-&gt;Version    = TCG_DEVICE_SECURITY_EVENT_DATA_VERSION_2;
+      EventData2-&gt;AuthState  = AuthState;
+      EventData2-&gt;Reserved   = 0;
+      EventData2-&gt;Length     = (UINT32)EventLogSize;
+      EventData2-&gt;DeviceType = GetSpdmDeviceType (SpdmDeviceContext);</span>
+
+<span style = "background-color:#dfd">      EventData2-&gt;SubHeaderType   = TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_SUB_HEADER_TYPE_SPDM_CERT_CHAIN;
+      EventData2-&gt;SubHeaderLength = sizeof (TCG_DEVICE_SECURITY_EVENT_DATA_SUB_HEADER_SPDM_CERT_CHAIN);
+      EventData2-&gt;SubHeaderUID    = SpdmDeviceContext-&gt;DeviceUID;</span>
+
+<span style = "background-color:#dfd">      EventLogPtr = (VOID *)(EventData2 + 1);</span>
+
+<span style = "background-color:#dfd">      *(UINT64 *)EventLogPtr = (UINT64)DevicePathSize;
+      EventLogPtr           += sizeof (UINT64);
+      CopyMem (EventLogPtr, SpdmDeviceContext-&gt;DevicePath, DevicePathSize);
+      EventLogPtr += DevicePathSize;</span>
+
+<span style = "background-color:#dfd">      TcgSpdmCertChain               = (VOID *)EventLogPtr;
+      TcgSpdmCertChain-&gt;SpdmVersion  = SpdmDeviceContext-&gt;SpdmVersion;
+      TcgSpdmCertChain-&gt;SpdmSlotId   = SlotId;
+      TcgSpdmCertChain-&gt;Reserved     = 0;
+      TcgSpdmCertChain-&gt;SpdmHashAlgo = BaseHashAlgo;
+      EventLogPtr                   += sizeof (TCG_DEVICE_SECURITY_EVENT_DATA_SUB_HEADER_SPDM_CERT_CHAIN);</span>
+
+<span style = "background-color:#dfd">      if (DeviceContextSize != 0) {
+        DeviceContext = (VOID *)EventLogPtr;
+        Status        = CreateDeviceMeasurementContext (SpdmDeviceContext, DeviceContext, DeviceContextSize);
+        if (Status != EFI_SUCCESS) {</span>
+<span style = "background-color:#fdd">          SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_DEVICE_ERROR;
+          Status                             = EFI_DEVICE_ERROR;
+          goto Exit;</span>
+        }
+      }
+
+<span style = "background-color:#dfd">      Status = TpmMeasureAndLogData (</span>
+                 TCG_NV_EXTEND_INDEX_FOR_INSTANCE,
+                 EV_NO_ACTION,
+                 EventLog,
+                 EventLogSize,
+                 EventLog,
+                 EventLogSize
+                 );
+<span style = "background-color:#dfd">      if (EFI_ERROR (Status)) {</span>
+<span style = "background-color:#fdd">        SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_TCG_EXTEND_TPM_PCR;</span>
+      }
+
+<span style = "background-color:#dfd">      DEBUG ((DEBUG_INFO, "TpmMeasureAndLogData (Instance) - %r\n", Status));</span>
+
+<span style = "background-color:#dfd">      goto Exit;</span>
+    case TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_AUTH_STATE_FAIL_NO_SIG:
+    case TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_AUTH_STATE_NO_SPDM:
+<span style = "background-color:#dfd">      EventLogSize = (UINT32)(sizeof (TCG_NV_INDEX_INSTANCE_EVENT_LOG_STRUCT) +</span>
+                              sizeof (TCG_DEVICE_SECURITY_EVENT_DATA_HEADER2) +
+                              sizeof (UINT64) + DevicePathSize +
+                              DeviceContextSize);
+<span style = "background-color:#dfd">      EventLog = AllocatePool (EventLogSize);
+      if (EventLog == NULL) {</span>
+<span style = "background-color:#fdd">        SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_UEFI_OUT_OF_RESOURCE;
+        return EFI_OUT_OF_RESOURCES;</span>
+      }
+
+<span style = "background-color:#dfd">      EventLogPtr = EventLog;</span>
+
+<span style = "background-color:#dfd">      NvIndexInstance = (VOID *)EventLogPtr;
+      CopyMem (NvIndexInstance-&gt;Signature, TCG_NV_EXTEND_INDEX_FOR_INSTANCE_SIGNATURE, sizeof (TCG_NV_EXTEND_INDEX_FOR_INSTANCE_SIGNATURE));
+      NvIndexInstance-&gt;Version = TCG_NV_INDEX_INSTANCE_EVENT_LOG_STRUCT_VERSION;
+      ZeroMem (NvIndexInstance-&gt;Reserved, sizeof (NvIndexInstance-&gt;Reserved));
+      EventLogPtr += sizeof (TCG_NV_INDEX_INSTANCE_EVENT_LOG_STRUCT);</span>
+
+<span style = "background-color:#dfd">      EventData2 = (VOID *)EventLogPtr;
+      CopyMem (EventData2-&gt;Signature, TCG_DEVICE_SECURITY_EVENT_DATA_SIGNATURE_2, sizeof (EventData2-&gt;Signature));
+      EventData2-&gt;Version    = TCG_DEVICE_SECURITY_EVENT_DATA_VERSION_2;
+      EventData2-&gt;AuthState  = AuthState;
+      EventData2-&gt;Reserved   = 0;
+      EventData2-&gt;Length     = (UINT32)EventLogSize;
+      EventData2-&gt;DeviceType = GetSpdmDeviceType (SpdmDeviceContext);</span>
+
+<span style = "background-color:#dfd">      EventData2-&gt;SubHeaderType   = TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_SUB_HEADER_TYPE_SPDM_CERT_CHAIN;
+      EventData2-&gt;SubHeaderLength = 0;
+      EventData2-&gt;SubHeaderUID    = SpdmDeviceContext-&gt;DeviceUID;</span>
+
+<span style = "background-color:#dfd">      EventLogPtr = (VOID *)(EventData2 + 1);</span>
+
+<span style = "background-color:#dfd">      *(UINT64 *)EventLogPtr = (UINT64)DevicePathSize;
+      EventLogPtr           += sizeof (UINT64);
+      CopyMem (EventLogPtr, SpdmDeviceContext-&gt;DevicePath, DevicePathSize);
+      EventLogPtr += DevicePathSize;</span>
+
+<span style = "background-color:#dfd">      if (DeviceContextSize != 0) {
+        DeviceContext = (VOID *)EventLogPtr;
+        Status        = CreateDeviceMeasurementContext (SpdmDeviceContext, DeviceContext, DeviceContextSize);
+        if (Status != EFI_SUCCESS) {</span>
+<span style = "background-color:#fdd">          SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_DEVICE_ERROR;
+          Status                             = EFI_DEVICE_ERROR;
+          goto Exit;</span>
+        }
+      }
+
+<span style = "background-color:#dfd">      Status = TpmMeasureAndLogData (</span>
+                 TCG_NV_EXTEND_INDEX_FOR_INSTANCE,
+                 EV_NO_ACTION,
+                 EventLog,
+                 EventLogSize,
+                 EventLog,
+                 EventLogSize
+                 );
+<span style = "background-color:#dfd">      if (EFI_ERROR (Status)) {</span>
+<span style = "background-color:#fdd">        SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_TCG_EXTEND_TPM_PCR;</span>
+      }
+
+<span style = "background-color:#dfd">      DEBUG ((DEBUG_INFO, "TpmMeasureAndLogData (Instance) - %r\n", Status));</span>
+
+<span style = "background-color:#dfd">      goto Exit;</span>
+    default:
+<span style = "background-color:#fdd">      SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_UEFI_UNSUPPORTED;
+      return EFI_UNSUPPORTED;</span>
+  }
+
+<span style = "background-color:#dfd">  if ((TrustAnchor != NULL) &amp;&amp; (TrustAnchorSize != 0)) {
+    SignatureDataSize = sizeof (EFI_GUID) + TrustAnchorSize;
+    SignatureData     = AllocateZeroPool (SignatureDataSize);
+    if (SignatureData == NULL) {</span>
+<span style = "background-color:#fdd">      ASSERT (SignatureData != NULL);
+      SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_UEFI_OUT_OF_RESOURCE;
+      Status                             = EFI_OUT_OF_RESOURCES;
+      goto Exit;</span>
+    }
+
+<span style = "background-color:#dfd">    CopyGuid (&amp;SignatureData-&gt;SignatureOwner, &amp;gEfiCallerIdGuid);
+    CopyMem (</span>
+      (UINT8 *)SignatureData + sizeof (EFI_GUID),
+      TrustAnchor,
+      TrustAnchorSize
+      );
+
+<span style = "background-color:#dfd">    MeasureVariable (</span>
+      PCR_INDEX_FOR_SIGNATURE_DB,
+      EV_EFI_SPDM_DEVICE_AUTHORITY,
+      EFI_DEVICE_SECURITY_DATABASE,
+      &amp;gEfiDeviceSignatureDatabaseGuid,
+      SignatureData,
+      SignatureDataSize
+      );
+<span style = "background-color:#dfd">    FreePool (SignatureData);</span>
+  }
+
+Exit:
+<span style = "background-color:#dfd">  if (EventLog != NULL) {
+    FreePool (EventLog);</span>
+  }
+
+<span style = "background-color:#dfd">  return Status;
+}</span>
+
+/**
+  Measure and log Auth state and Requester and responder Nonce into NV Index.
+
+  @param[in]  SpdmDeviceContext        The SPDM context for the device.
+  @param[in]  AuthState                The auth state of this deice.
+  @param[in]  RequesterNonce           A buffer to hold the requester nonce (32 bytes), if not NULL.
+  @param[in]  ResponderNonce           A buffer to hold the responder nonce (32 bytes), if not NULL.
+  @param[out]  SecurityState           A pointer to the security state of the requester.
+
+  @retval EFI_SUCCESS           Operation completed successfully.
+  @retval EFI_OUT_OF_RESOURCES  Out of memory.
+  @retval EFI_DEVICE_ERROR      The operation was unsuccessful.
+
+**/
+EFI_STATUS
+ExtendAuthentication (
+  IN  SPDM_DEVICE_CONTEXT          *SpdmDeviceContext,
+  IN UINT8                         AuthState,
+  IN UINT8                         *RequesterNonce,
+  IN UINT8                         *ResponderNonce,
+  OUT EDKII_DEVICE_SECURITY_STATE  *SecurityState
+  )
+<span style = "background-color:#dfd">{</span>
+  EFI_STATUS  Status;
+
+  {
+    TCG_NV_INDEX_DYNAMIC_EVENT_LOG_STRUCT_SPDM_CHALLENGE       DynamicEventLogSpdmChallengeEvent;
+    TCG_NV_INDEX_DYNAMIC_EVENT_LOG_STRUCT_SPDM_CHALLENGE_AUTH  DynamicEventLogSpdmChallengeAuthEvent;
+
+<span style = "background-color:#dfd">    CopyMem (DynamicEventLogSpdmChallengeEvent.Header.Signature, TCG_NV_EXTEND_INDEX_FOR_DYNAMIC_SIGNATURE, sizeof (TCG_NV_EXTEND_INDEX_FOR_DYNAMIC_SIGNATURE));
+    DynamicEventLogSpdmChallengeEvent.Header.Version = TCG_NV_INDEX_DYNAMIC_EVENT_LOG_STRUCT_VERSION;
+    ZeroMem (DynamicEventLogSpdmChallengeEvent.Header.Reserved, sizeof (DynamicEventLogSpdmChallengeEvent.Header.Reserved));
+    DynamicEventLogSpdmChallengeEvent.Header.Uid      = SpdmDeviceContext-&gt;DeviceUID;
+    DynamicEventLogSpdmChallengeEvent.DescriptionSize = sizeof (TCG_SPDM_CHALLENGE_DESCRIPTION);
+    CopyMem (DynamicEventLogSpdmChallengeEvent.Description, TCG_SPDM_CHALLENGE_DESCRIPTION, sizeof (TCG_SPDM_CHALLENGE_DESCRIPTION));
+    DynamicEventLogSpdmChallengeEvent.DataSize = SPDM_NONCE_SIZE;
+    CopyMem (DynamicEventLogSpdmChallengeEvent.Data, RequesterNonce, SPDM_NONCE_SIZE);</span>
+
+<span style = "background-color:#dfd">    Status = TpmMeasureAndLogData (</span>
+               TCG_NV_EXTEND_INDEX_FOR_DYNAMIC,
+               EV_NO_ACTION,
+               &amp;DynamicEventLogSpdmChallengeEvent,
+               sizeof (DynamicEventLogSpdmChallengeEvent),
+               &amp;DynamicEventLogSpdmChallengeEvent,
+               sizeof (DynamicEventLogSpdmChallengeEvent)
+               );
+<span style = "background-color:#dfd">    if (EFI_ERROR (Status)) {</span>
+<span style = "background-color:#fdd">      SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_TCG_EXTEND_TPM_PCR;</span>
+    }
+
+<span style = "background-color:#dfd">    DEBUG ((DEBUG_INFO, "TpmMeasureAndLogData (Dynamic) - %r\n", Status));</span>
+
+<span style = "background-color:#dfd">    CopyMem (DynamicEventLogSpdmChallengeAuthEvent.Header.Signature, TCG_NV_EXTEND_INDEX_FOR_DYNAMIC_SIGNATURE, sizeof (TCG_NV_EXTEND_INDEX_FOR_DYNAMIC_SIGNATURE));
+    DynamicEventLogSpdmChallengeAuthEvent.Header.Version = TCG_NV_INDEX_DYNAMIC_EVENT_LOG_STRUCT_VERSION;
+    ZeroMem (DynamicEventLogSpdmChallengeAuthEvent.Header.Reserved, sizeof (DynamicEventLogSpdmChallengeAuthEvent.Header.Reserved));
+    DynamicEventLogSpdmChallengeAuthEvent.Header.Uid      = SpdmDeviceContext-&gt;DeviceUID;
+    DynamicEventLogSpdmChallengeAuthEvent.DescriptionSize = sizeof (TCG_SPDM_CHALLENGE_AUTH_DESCRIPTION);
+    CopyMem (DynamicEventLogSpdmChallengeAuthEvent.Description, TCG_SPDM_CHALLENGE_AUTH_DESCRIPTION, sizeof (TCG_SPDM_CHALLENGE_AUTH_DESCRIPTION));
+    DynamicEventLogSpdmChallengeAuthEvent.DataSize = SPDM_NONCE_SIZE;
+    CopyMem (DynamicEventLogSpdmChallengeAuthEvent.Data, ResponderNonce, SPDM_NONCE_SIZE);</span>
+
+<span style = "background-color:#dfd">    Status = TpmMeasureAndLogData (</span>
+               TCG_NV_EXTEND_INDEX_FOR_DYNAMIC,
+               EV_NO_ACTION,
+               &amp;DynamicEventLogSpdmChallengeAuthEvent,
+               sizeof (DynamicEventLogSpdmChallengeAuthEvent),
+               &amp;DynamicEventLogSpdmChallengeAuthEvent,
+               sizeof (DynamicEventLogSpdmChallengeAuthEvent)
+               );
+<span style = "background-color:#dfd">    if (EFI_ERROR (Status)) {</span>
+<span style = "background-color:#fdd">      SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_TCG_EXTEND_TPM_PCR;</span>
+    }
+
+<span style = "background-color:#dfd">    DEBUG ((DEBUG_INFO, "TpmMeasureAndLogData (Dynamic) - %r\n", Status));</span>
+  }
+
+<span style = "background-color:#dfd">  return Status;
+}</span>
+
+/**
+  This function gets SPDM digest and certificates.
+
+  @param[in]  SpdmDeviceContext           The SPDM context for the device.
+  @param[out]  AuthState                  The auth state of the devices.
+  @param[out]  ValidSlotId                The number of slot for the certificate chain.
+  @param[out]  SecurityState              The security state of the requester.
+  @param[out]  IsValidCertChain           The validity of the certificate chain.
+  @param[out]  RootCertMatch              The authority of the certificate chain.
+
+  @retval EFI_SUCCESS           Operation completed successfully.
+  @retval EFI_OUT_OF_RESOURCES  Out of memory.
+  @retval EFI_DEVICE_ERROR      The operation was unsuccessful.
+
+**/
+EFI_STATUS
+EFIAPI
+DoDeviceCertificate (
+  IN  SPDM_DEVICE_CONTEXT          *SpdmDeviceContext,
+  OUT UINT8                        *AuthState,
+  OUT UINT8                        *ValidSlotId,
+  OUT EDKII_DEVICE_SECURITY_STATE  *SecurityState,
+  OUT BOOLEAN                      *IsValidCertChain,
+  OUT BOOLEAN                      *RootCertMatch
+  )
+<span style = "background-color:#dfd">{</span>
+  EFI_STATUS           Status;
+  SPDM_RETURN          SpdmReturn;
+  VOID                 *SpdmContext;
+  UINT32               CapabilityFlags;
+  UINTN                DataSize;
+  SPDM_DATA_PARAMETER  Parameter;
+  UINT8                SlotMask;
+  UINT8                TotalDigestBuffer[LIBSPDM_MAX_HASH_SIZE * SPDM_MAX_SLOT_COUNT];
+  UINTN                CertChainSize;
+  UINT8                CertChain[LIBSPDM_MAX_CERT_CHAIN_SIZE];
+  VOID                 *TrustAnchor;
+  UINTN                TrustAnchorSize;
+  UINT8                SlotId;
+
+<span style = "background-color:#dfd">  SpdmContext = SpdmDeviceContext-&gt;SpdmContext;</span>
+
+<span style = "background-color:#dfd">  ZeroMem (&amp;Parameter, sizeof (Parameter));
+  Parameter.location = SpdmDataLocationConnection;
+  DataSize           = sizeof (CapabilityFlags);
+  SpdmReturn         = SpdmGetData (SpdmContext, SpdmDataCapabilityFlags, &amp;Parameter, &amp;CapabilityFlags, &amp;DataSize);
+  if (LIBSPDM_STATUS_IS_ERROR (SpdmReturn)) {</span>
+<span style = "background-color:#fdd">    SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_DEVICE_ERROR;
+    return EFI_DEVICE_ERROR;</span>
+  }
+
+<span style = "background-color:#dfd">  *IsValidCertChain = FALSE;
+  *RootCertMatch    = FALSE;
+  CertChainSize     = sizeof (CertChain);
+  ZeroMem (CertChain, sizeof (CertChain));
+  TrustAnchor     = NULL;
+  TrustAnchorSize = 0;</span>
+
+  //
+  // Init *ValidSlotId to invalid slot_id
+  //
+<span style = "background-color:#dfd">  *ValidSlotId = SPDM_MAX_SLOT_COUNT;</span>
+
+<span style = "background-color:#dfd">  if ((CapabilityFlags &amp; SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_CERT_CAP) == 0) {
+    *AuthState                         = TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_AUTH_STATE_FAIL_NO_SIG;
+    SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_DEVICE_NO_CAPABILITIES;
+    Status                             = ExtendCertificate (SpdmDeviceContext, *AuthState, 0, NULL, NULL, 0, 0, SecurityState);
+    return Status;</span>
+<span style = "background-color:#fdd">  } else {</span>
+<span style = "background-color:#dfd">    ZeroMem (TotalDigestBuffer, sizeof (TotalDigestBuffer));
+    SpdmReturn = SpdmGetDigest (SpdmContext, NULL, &amp;SlotMask, TotalDigestBuffer);
+    if ((LIBSPDM_STATUS_IS_ERROR (SpdmReturn)) || ((SlotMask &amp; 0x01) == 0)) {</span>
+<span style = "background-color:#fdd">      *AuthState                         = TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_AUTH_STATE_FAIL_INVALID;
+      SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_CERTIFIACTE_FAILURE;
+      SlotId                             = 0;
+      Status                             = ExtendCertificate (SpdmDeviceContext, *AuthState, 0, NULL, NULL, 0, SlotId, SecurityState);
+      return Status;</span>
+    }
+
+<span style = "background-color:#dfd">    for (SlotId = 0; SlotId &lt; SPDM_MAX_SLOT_COUNT; SlotId++) {
+      if (((SlotMask &gt;&gt; SlotId) &amp; 0x01) == 0) {
+        continue;</span>
+      }
+
+<span style = "background-color:#dfd">      CertChainSize = sizeof (CertChain);
+      ZeroMem (CertChain, sizeof (CertChain));
+      SpdmReturn = SpdmGetCertificateEx (SpdmContext, NULL, SlotId, &amp;CertChainSize, CertChain, (CONST VOID **)&amp;TrustAnchor, &amp;TrustAnchorSize);
+      if (LIBSPDM_STATUS_IS_SUCCESS (SpdmReturn)) {
+        *IsValidCertChain = TRUE;
+        break;
+      } else if (SpdmReturn == LIBSPDM_STATUS_VERIF_FAIL) {
+        *IsValidCertChain                  = FALSE;
+        *AuthState                         = TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_AUTH_STATE_FAIL_INVALID;
+        SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_CERTIFIACTE_FAILURE;
+        Status                             = ExtendCertificate (SpdmDeviceContext, *AuthState, 0, NULL, NULL, 0, SlotId, SecurityState);
+      } else if (SpdmReturn == LIBSPDM_STATUS_VERIF_NO_AUTHORITY) {
+        *IsValidCertChain                  = TRUE;
+        *AuthState                         = TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_AUTH_STATE_NO_AUTH;
+        SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_CERTIFIACTE_FAILURE;
+        *ValidSlotId                       = SlotId;</span>
+      }
+<span style = "background-color:#dfd">    }</span>
+
+<span style = "background-color:#dfd">    if ((SlotId &gt;= SPDM_MAX_SLOT_COUNT) &amp;&amp; (*ValidSlotId == SPDM_MAX_SLOT_COUNT)) {
+      SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_DEVICE_ERROR;
+      return EFI_DEVICE_ERROR;</span>
+    }
+
+<span style = "background-color:#dfd">    if (TrustAnchor != NULL) {
+      *RootCertMatch = TRUE;
+      *ValidSlotId   = SlotId;
+    } else {
+      *ValidSlotId = 0;</span>
+    }
+
+<span style = "background-color:#dfd">    DEBUG ((DEBUG_INFO, "SpdmGetCertificateEx - SpdmReturn %p, TrustAnchorSize 0x%x, RootCertMatch %d\n", SpdmReturn, TrustAnchorSize, *RootCertMatch));</span>
+
+<span style = "background-color:#dfd">    return EFI_SUCCESS;</span>
+  }
+<span style = "background-color:#dfd">}</span>
+
+/**
+  This function does authentication.
+
+  @param[in]  SpdmDeviceContext           The SPDM context for the device.
+  @param[out]  AuthState                  The auth state of the devices.
+  @param[in]  ValidSlotId                 The number of slot for the certificate chain.
+  @param[in]  IsValidCertChain            Indicate the validity of CertChain
+  @param[in]  RootCertMatch               Indicate the match or mismatch for Rootcert
+  @param[out]  SecurityState              The security state of the requester.
+
+  @retval EFI_SUCCESS           Operation completed successfully.
+  @retval EFI_OUT_OF_RESOURCES  Out of memory.
+  @retval EFI_DEVICE_ERROR      The operation was unsuccessful.
+
+**/
+EFI_STATUS
+EFIAPI
+DoDeviceAuthentication (
+  IN  SPDM_DEVICE_CONTEXT          *SpdmDeviceContext,
+  OUT UINT8                        *AuthState,
+  IN  UINT8                        ValidSlotId,
+  IN  BOOLEAN                      IsValidCertChain,
+  IN  BOOLEAN                      RootCertMatch,
+  OUT EDKII_DEVICE_SECURITY_STATE  *SecurityState
+  )
+<span style = "background-color:#dfd">{</span>
+  EFI_STATUS           Status;
+  SPDM_RETURN          SpdmReturn;
+  VOID                 *SpdmContext;
+  UINT32               CapabilityFlags;
+  UINTN                DataSize;
+  SPDM_DATA_PARAMETER  Parameter;
+  UINTN                CertChainSize;
+  UINT8                CertChain[LIBSPDM_MAX_CERT_CHAIN_SIZE];
+  UINT8                RequesterNonce[SPDM_NONCE_SIZE];
+  UINT8                ResponderNonce[SPDM_NONCE_SIZE];
+  VOID                 *TrustAnchor;
+  UINTN                TrustAnchorSize;
+  BOOLEAN              IsValidChallengeAuthSig;
+
+<span style = "background-color:#dfd">  SpdmContext = SpdmDeviceContext-&gt;SpdmContext;</span>
+
+<span style = "background-color:#dfd">  ZeroMem (&amp;Parameter, sizeof (Parameter));
+  Parameter.location = SpdmDataLocationConnection;
+  DataSize           = sizeof (CapabilityFlags);
+  SpdmReturn         = SpdmGetData (SpdmContext, SpdmDataCapabilityFlags, &amp;Parameter, &amp;CapabilityFlags, &amp;DataSize);
+  if (LIBSPDM_STATUS_IS_ERROR (SpdmReturn)) {</span>
+<span style = "background-color:#fdd">    SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_DEVICE_ERROR;
+    return EFI_DEVICE_ERROR;</span>
+  }
+
+<span style = "background-color:#dfd">  IsValidChallengeAuthSig = FALSE;</span>
+
+  // get the valid CertChain
+<span style = "background-color:#dfd">  CertChainSize = sizeof (CertChain);
+  ZeroMem (CertChain, sizeof (CertChain));
+  SpdmReturn = SpdmGetCertificateEx (SpdmContext, NULL, ValidSlotId, &amp;CertChainSize, CertChain, (CONST VOID **)&amp;TrustAnchor, &amp;TrustAnchorSize);
+  if ((!LIBSPDM_STATUS_IS_SUCCESS (SpdmReturn)) &amp;&amp; (!(SpdmReturn == LIBSPDM_STATUS_VERIF_NO_AUTHORITY))) {</span>
+<span style = "background-color:#fdd">    return EFI_DEVICE_ERROR;</span>
+  }
+
+<span style = "background-color:#dfd">  if ((CapabilityFlags &amp; SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_CHAL_CAP) == 0) {
+    *AuthState                         = TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_AUTH_STATE_NO_BINDING;
+    SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_DEVICE_NO_CAPABILITIES;
+    Status                             = ExtendCertificate (SpdmDeviceContext, *AuthState, CertChainSize, CertChain, NULL, 0, ValidSlotId, SecurityState);
+    return Status;</span>
+<span style = "background-color:#fdd">  } else {</span>
+<span style = "background-color:#dfd">    ZeroMem (RequesterNonce, sizeof (RequesterNonce));
+    ZeroMem (ResponderNonce, sizeof (ResponderNonce));
+    SpdmReturn = SpdmChallengeEx (SpdmContext, NULL, ValidSlotId, SPDM_CHALLENGE_REQUEST_NO_MEASUREMENT_SUMMARY_HASH, NULL, NULL, NULL, RequesterNonce, ResponderNonce, NULL, 0);
+    if (SpdmReturn == LIBSPDM_STATUS_SUCCESS) {
+      IsValidChallengeAuthSig = TRUE;
+    } else if ((LIBSPDM_STATUS_IS_ERROR (SpdmReturn))) {
+      IsValidChallengeAuthSig            = FALSE;
+      *AuthState                         = TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_AUTH_STATE_FAIL_INVALID;
+      SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_CHALLENGE_FAILURE;
+      Status                             = ExtendCertificate (SpdmDeviceContext, *AuthState, 0, NULL, NULL, 0, ValidSlotId, SecurityState);
+      return Status;</span>
+<span style = "background-color:#fdd">    } else {
+      return EFI_DEVICE_ERROR;</span>
+    }
+
+<span style = "background-color:#dfd">    if (IsValidCertChain &amp;&amp; IsValidChallengeAuthSig &amp;&amp; !RootCertMatch) {
+      *AuthState                         = TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_AUTH_STATE_NO_AUTH;
+      SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_ERROR_NO_CERT_PROVISION;
+      Status                             = ExtendCertificate (SpdmDeviceContext, *AuthState, CertChainSize, CertChain, NULL, 0, ValidSlotId, SecurityState);
+    } else if (IsValidCertChain &amp;&amp; IsValidChallengeAuthSig &amp;&amp; RootCertMatch) {
+      *AuthState                         = TCG_DEVICE_SECURITY_EVENT_DATA_DEVICE_AUTH_STATE_SUCCESS;
+      SecurityState-&gt;AuthenticationState = EDKII_DEVICE_SECURITY_STATE_SUCCESS;
+      Status                             = ExtendCertificate (SpdmDeviceContext, *AuthState, CertChainSize, CertChain, TrustAnchor, TrustAnchorSize, ValidSlotId, SecurityState);</span>
+    }
+
+<span style = "background-color:#dfd">    Status = ExtendAuthentication (SpdmDeviceContext, *AuthState, RequesterNonce, ResponderNonce, SecurityState);</span>
+  }
+
+<span style = "background-color:#dfd">  return Status;
+}</span></pre>
+        <hr />
+        <table width="100%">
+            <thead>
+                <tr>
+                    <th align="center">
+                        <small>Generated by</small>
+                        <a href="https://github.com/OpenCppCoverage/OpenCppCoverage/releases">
+                            <strong>OpenCppCoverage (Version: 0.9.9.0)</strong>
+                        </a>
+                    </th>
+                </tr>
+            </thead>
+        </table>
+    </body>
+</html>

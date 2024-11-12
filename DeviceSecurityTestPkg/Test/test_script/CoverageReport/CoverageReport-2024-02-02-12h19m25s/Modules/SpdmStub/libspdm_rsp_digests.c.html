@@ -1,0 +1,227 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+        <meta charset="utf-8"/>
+	    <title>libspdm_rsp_digests.c</title>
+	    <link href="../../third-party/google-code-prettify/prettify-CppCoverage.css" type="text/css" rel="stylesheet" />
+	    <script type="text/javascript" src="../../third-party/google-code-prettify/prettify.js"></script>
+	</head>
+    <body onload="prettyPrint()">
+        <h4></h4>
+        <pre class="prettyprint lang-cpp linenums">
+/**
+ *  Copyright Notice:
+ *  Copyright 2021-2022 DMTF. All rights reserved.
+ *  License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/libspdm/blob/main/LICENSE.md
+ **/
+
+#include "internal/libspdm_responder_lib.h"
+
+#if LIBSPDM_ENABLE_CAPABILITY_CERT_CAP
+
+libspdm_return_t libspdm_get_response_digests(libspdm_context_t *spdm_context, size_t request_size,
+                                              const void *request,
+                                              size_t *response_size,
+                                              void *response)
+<span style = "background-color:#dfd">{</span>
+    const spdm_get_digest_request_t *spdm_request;
+    spdm_digest_response_t *spdm_response;
+    size_t index;
+    bool no_local_cert_chain;
+    uint32_t hash_size;
+    uint8_t *digest;
+    libspdm_return_t status;
+    bool result;
+    libspdm_session_info_t *session_info;
+    libspdm_session_state_t session_state;
+    /*total populated slot count*/
+    uint8_t slot_count;
+    /*populated slot index*/
+    uint8_t slot_index;
+    size_t additional_size;
+    spdm_key_pair_id_t *key_pair_id;
+    spdm_certificate_info_t *cert_info;
+    spdm_key_usage_bit_mask_t *key_usage_bit_mask;
+
+<span style = "background-color:#dfd">    spdm_request = request;</span>
+
+    /* -=[Check Parameters Phase]=- */
+<span style = "background-color:#dfd">    LIBSPDM_ASSERT(spdm_request-&gt;header.request_response_code == SPDM_GET_DIGESTS);</span>
+
+<span style = "background-color:#dfd">    if (spdm_request-&gt;header.spdm_version != libspdm_get_connection_version(spdm_context)) {</span>
+<span style = "background-color:#fdd">        return libspdm_generate_error_response(spdm_context,</span>
+                                               SPDM_ERROR_CODE_VERSION_MISMATCH, 0,
+                                               response_size, response);
+    }
+<span style = "background-color:#dfd">    if (spdm_context-&gt;response_state != LIBSPDM_RESPONSE_STATE_NORMAL) {</span>
+<span style = "background-color:#fdd">        return libspdm_responder_handle_response_state(</span>
+            spdm_context,
+            spdm_request-&gt;header.request_response_code,
+            response_size, response);
+    }
+<span style = "background-color:#dfd">    if (!libspdm_is_capabilities_flag_supported(</span>
+            spdm_context, false, 0,
+            SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_CERT_CAP)) {
+<span style = "background-color:#fdd">        return libspdm_generate_error_response(</span>
+            spdm_context, SPDM_ERROR_CODE_UNSUPPORTED_REQUEST,
+            SPDM_GET_DIGESTS, response_size, response);
+    }
+<span style = "background-color:#dfd">    if (spdm_context-&gt;connection_info.connection_state &lt;</span>
+        LIBSPDM_CONNECTION_STATE_NEGOTIATED) {
+<span style = "background-color:#fdd">        return libspdm_generate_error_response(spdm_context,</span>
+                                               SPDM_ERROR_CODE_UNEXPECTED_REQUEST,
+                                               0, response_size, response);
+    }
+<span style = "background-color:#dfd">    session_info = NULL;
+    if (spdm_context-&gt;last_spdm_request_session_id_valid) {</span>
+<span style = "background-color:#fdd">        session_info = libspdm_get_session_info_via_session_id(</span>
+            spdm_context,
+            spdm_context-&gt;last_spdm_request_session_id);
+<span style = "background-color:#fdd">        if (session_info == NULL) {
+            return libspdm_generate_error_response(</span>
+                spdm_context,
+                SPDM_ERROR_CODE_UNEXPECTED_REQUEST, 0,
+                response_size, response);
+        }
+<span style = "background-color:#fdd">        session_state = libspdm_secured_message_get_session_state(</span>
+            session_info-&gt;secured_message_context);
+<span style = "background-color:#fdd">        if (session_state != LIBSPDM_SESSION_STATE_ESTABLISHED) {
+            return libspdm_generate_error_response(</span>
+                spdm_context,
+                SPDM_ERROR_CODE_UNEXPECTED_REQUEST, 0,
+                response_size, response);
+        }
+    }
+
+<span style = "background-color:#dfd">    if (request_size &lt; sizeof(spdm_get_digest_request_t)) {</span>
+<span style = "background-color:#fdd">        return libspdm_generate_error_response(spdm_context,</span>
+                                               SPDM_ERROR_CODE_INVALID_REQUEST, 0,
+                                               response_size, response);
+    }
+
+<span style = "background-color:#dfd">    libspdm_reset_message_buffer_via_request_code(spdm_context, session_info,</span>
+                                                  spdm_request-&gt;header.request_response_code);
+
+<span style = "background-color:#dfd">    no_local_cert_chain = true;
+    for (index = 0; index &lt; SPDM_MAX_SLOT_COUNT; index++) {</span>
+        if (spdm_context-&gt;local_context
+<span style = "background-color:#dfd">            .local_cert_chain_provision[index] != NULL) {
+            no_local_cert_chain = false;</span>
+        }
+<span style = "background-color:#dfd">    }
+    if (no_local_cert_chain) {</span>
+<span style = "background-color:#fdd">        return libspdm_generate_error_response(</span>
+            spdm_context, SPDM_ERROR_CODE_UNSPECIFIED,
+            0, response_size, response);
+    }
+
+<span style = "background-color:#dfd">    hash_size = libspdm_get_hash_size(</span>
+        spdm_context-&gt;connection_info.algorithm.base_hash_algo);
+
+<span style = "background-color:#dfd">    slot_count = libspdm_get_cert_slot_count(spdm_context);
+    additional_size = 0;
+    if ((spdm_request-&gt;header.spdm_version &gt;= SPDM_MESSAGE_VERSION_13) &amp;&amp;</span>
+        spdm_context-&gt;connection_info.multi_key_conn_rsp) {
+<span style = "background-color:#fdd">        additional_size = sizeof(spdm_key_pair_id_t) + sizeof(spdm_certificate_info_t) +</span>
+                          sizeof(spdm_key_usage_bit_mask_t);
+    }
+<span style = "background-color:#dfd">    LIBSPDM_ASSERT(*response_size &gt;=</span>
+                   sizeof(spdm_digest_response_t) + (hash_size + additional_size) * slot_count);
+<span style = "background-color:#dfd">    *response_size = sizeof(spdm_digest_response_t) + (hash_size + additional_size) * slot_count;
+    libspdm_zero_mem(response, *response_size);
+    spdm_response = response;</span>
+
+<span style = "background-color:#dfd">    spdm_response-&gt;header.spdm_version = spdm_request-&gt;header.spdm_version;
+    spdm_response-&gt;header.request_response_code = SPDM_DIGESTS;
+    spdm_response-&gt;header.param1 = 0;
+    spdm_response-&gt;header.param2 = 0;</span>
+
+<span style = "background-color:#dfd">    if (spdm_request-&gt;header.spdm_version &gt;= SPDM_MESSAGE_VERSION_13) {
+        spdm_response-&gt;header.param1 = spdm_context-&gt;local_context.local_supported_slot_mask;</span>
+    }
+
+<span style = "background-color:#dfd">    digest = (void *)(spdm_response + 1);
+    key_pair_id = (spdm_key_pair_id_t *)((uint8_t *)digest + hash_size * slot_count);
+    cert_info = (spdm_certificate_info_t *)((uint8_t *)key_pair_id +</span>
+                                            sizeof(spdm_key_pair_id_t) * slot_count);
+<span style = "background-color:#dfd">    key_usage_bit_mask = (spdm_key_usage_bit_mask_t *)((uint8_t *)cert_info +</span>
+                                                       sizeof(spdm_certificate_info_t) *
+                                                       slot_count);
+
+<span style = "background-color:#dfd">    slot_index = 0;
+    for (index = 0; index &lt; SPDM_MAX_SLOT_COUNT; index++) {</span>
+        if (spdm_context-&gt;local_context
+<span style = "background-color:#dfd">            .local_cert_chain_provision[index] != NULL) {
+            spdm_response-&gt;header.param2 |= (1 &lt;&lt; index);
+            result = libspdm_generate_cert_chain_hash(spdm_context, index,</span>
+                                                      &amp;digest[hash_size * slot_index]);
+<span style = "background-color:#dfd">            if ((spdm_request-&gt;header.spdm_version &gt;= SPDM_MESSAGE_VERSION_13) &amp;&amp;</span>
+                spdm_context-&gt;connection_info.multi_key_conn_rsp) {
+<span style = "background-color:#fdd">                key_pair_id[slot_index] = spdm_context-&gt;local_context.local_key_pair_id[index];
+                cert_info[slot_index] = spdm_context-&gt;local_context.local_cert_info[index];
+                key_usage_bit_mask[slot_index] =</span>
+                    spdm_context-&gt;local_context.local_key_usage_bit_mask[index];
+            }
+<span style = "background-color:#dfd">            slot_index++;
+            if (!result) {</span>
+<span style = "background-color:#fdd">                return libspdm_generate_error_response(</span>
+                    spdm_context, SPDM_ERROR_CODE_UNSPECIFIED,
+                    0, response_size, response);
+            }
+        }
+<span style = "background-color:#dfd">    }</span>
+
+    /* Cache*/
+
+<span style = "background-color:#dfd">    if (session_info == NULL) {
+        status = libspdm_append_message_b(spdm_context, spdm_request,</span>
+                                          request_size);
+<span style = "background-color:#dfd">        if (LIBSPDM_STATUS_IS_ERROR(status)) {</span>
+<span style = "background-color:#fdd">            return libspdm_generate_error_response(spdm_context,</span>
+                                                   SPDM_ERROR_CODE_UNSPECIFIED, 0,
+                                                   response_size, response);
+        }
+
+<span style = "background-color:#dfd">        status = libspdm_append_message_b(spdm_context, spdm_response,</span>
+                                          *response_size);
+<span style = "background-color:#dfd">        if (LIBSPDM_STATUS_IS_ERROR(status)) {</span>
+<span style = "background-color:#fdd">            return libspdm_generate_error_response(spdm_context,</span>
+                                                   SPDM_ERROR_CODE_UNSPECIFIED, 0,
+                                                   response_size, response);
+        }
+
+<span style = "background-color:#dfd">        if (spdm_context-&gt;connection_info.multi_key_conn_rsp) {</span>
+<span style = "background-color:#fdd">            status = libspdm_append_message_d(spdm_context, spdm_response, *response_size);
+            if (LIBSPDM_STATUS_IS_ERROR(status)) {
+                return libspdm_generate_error_response(spdm_context,</span>
+                                                       SPDM_ERROR_CODE_UNSPECIFIED, 0,
+                                                       response_size, response);
+            }
+        }
+    }
+
+<span style = "background-color:#dfd">    if (spdm_context-&gt;connection_info.connection_state &lt;</span>
+        LIBSPDM_CONNECTION_STATE_AFTER_DIGESTS) {
+<span style = "background-color:#dfd">        libspdm_set_connection_state(spdm_context,</span>
+                                     LIBSPDM_CONNECTION_STATE_AFTER_DIGESTS);
+    }
+
+<span style = "background-color:#dfd">    return LIBSPDM_STATUS_SUCCESS;
+}</span>
+
+#endif /* LIBSPDM_ENABLE_CAPABILITY_CERT_CAP*/</pre>
+        <hr />
+        <table width="100%">
+            <thead>
+                <tr>
+                    <th align="center">
+                        <small>Generated by</small>
+                        <a href="https://github.com/OpenCppCoverage/OpenCppCoverage/releases">
+                            <strong>OpenCppCoverage (Version: 0.9.9.0)</strong>
+                        </a>
+                    </th>
+                </tr>
+            </thead>
+        </table>
+    </body>
+</html>

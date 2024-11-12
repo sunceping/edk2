@@ -1,0 +1,437 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+        <meta charset="utf-8"/>
+	    <title>libspdm_req_get_capabilities.c</title>
+	    <link href="../../third-party/google-code-prettify/prettify-CppCoverage.css" type="text/css" rel="stylesheet" />
+	    <script type="text/javascript" src="../../third-party/google-code-prettify/prettify.js"></script>
+	</head>
+    <body onload="prettyPrint()">
+        <h4></h4>
+        <pre class="prettyprint lang-cpp linenums">
+/**
+ *  Copyright Notice:
+ *  Copyright 2021-2022 DMTF. All rights reserved.
+ *  License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/libspdm/blob/main/LICENSE.md
+ **/
+
+#include "internal/libspdm_requester_lib.h"
+
+/**
+ * This function validates the Responder's capabilities.
+ *
+ * @param  capabilities_flag The Responder's CAPABILITIES.Flags field.
+ * @param  version           The SPDM message version.
+ *
+ * @retval true  The field is valid.
+ * @retval false The field is invalid.
+ **/
+static bool validate_responder_capability(uint32_t capabilities_flag, uint8_t version)
+<span style = "background-color:#dfd">{</span>
+    /*uint8_t cache_cap = (uint8_t)(capabilities_flag)&amp;0x01;*/
+<span style = "background-color:#dfd">    const uint8_t cert_cap = (uint8_t)(capabilities_flag &gt;&gt; 1) &amp; 0x01;
+    const uint8_t chal_cap = (uint8_t)(capabilities_flag &gt;&gt; 2) &amp; 0x01;
+    const uint8_t meas_cap = (uint8_t)(capabilities_flag &gt;&gt; 3) &amp; 0x03;
+    const uint8_t meas_fresh_cap = (uint8_t)(capabilities_flag &gt;&gt; 5) &amp; 0x01;
+    const uint8_t encrypt_cap = (uint8_t)(capabilities_flag &gt;&gt; 6) &amp; 0x01;
+    const uint8_t mac_cap = (uint8_t)(capabilities_flag &gt;&gt; 7) &amp; 0x01;
+    const uint8_t mut_auth_cap = (uint8_t)(capabilities_flag &gt;&gt; 8) &amp; 0x01;
+    const uint8_t key_ex_cap = (uint8_t)(capabilities_flag &gt;&gt; 9) &amp; 0x01;
+    const uint8_t psk_cap = (uint8_t)(capabilities_flag &gt;&gt; 10) &amp; 0x03;
+    const uint8_t encap_cap = (uint8_t)(capabilities_flag &gt;&gt; 12) &amp; 0x01;
+    const uint8_t hbeat_cap = (uint8_t)(capabilities_flag &gt;&gt; 13) &amp; 0x01;
+    const uint8_t key_upd_cap = (uint8_t)(capabilities_flag &gt;&gt; 14) &amp; 0x01;
+    const uint8_t handshake_in_the_clear_cap = (uint8_t)(capabilities_flag &gt;&gt; 15) &amp; 0x01;
+    const uint8_t pub_key_id_cap = (uint8_t)(capabilities_flag &gt;&gt; 16) &amp; 0x01;</span>
+    /* uint8_t chunk_cap = (uint8_t)(capabilities_flag &gt;&gt; 17) &amp; 0x01; */
+<span style = "background-color:#dfd">    const uint8_t alias_cert_cap = (uint8_t)(capabilities_flag &gt;&gt; 18) &amp; 0x01;
+    const uint8_t set_cert_cap = (uint8_t)(capabilities_flag &gt;&gt; 19) &amp; 0x01;
+    const uint8_t csr_cap = (uint8_t)(capabilities_flag &gt;&gt; 20) &amp; 0x01;
+    const uint8_t cert_install_reset_cap = (uint8_t)(capabilities_flag &gt;&gt; 21) &amp; 0x01;
+    const uint8_t ep_info_cap = (uint8_t)(capabilities_flag &gt;&gt; 22) &amp; 0x03;</span>
+    /* const uint8_t mel_cap = (uint8_t)(capabilities_flag &gt;&gt; 24) &amp; 0x01; */
+<span style = "background-color:#dfd">    const uint8_t event_cap = (uint8_t)(capabilities_flag &gt;&gt; 25) &amp; 0x01;
+    const uint8_t multi_key_cap = (uint8_t)(capabilities_flag &gt;&gt; 26) &amp; 0x03;
+    const uint8_t get_key_pair_info_cap = (uint8_t)(capabilities_flag &gt;&gt; 28) &amp; 0x01;
+    const uint8_t set_key_pair_info_cap = (uint8_t)(capabilities_flag &gt;&gt; 29) &amp; 0x01;</span>
+
+    /* Checks common to all SPDM versions. */
+
+    /* Illegal to return reserved value. */
+<span style = "background-color:#dfd">    if (meas_cap == 3) {</span>
+<span style = "background-color:#fdd">        return false;</span>
+    }
+
+    /* If MEAS_FRESH_CAP is set then MEAS_CAP must be set. */
+<span style = "background-color:#dfd">    if ((meas_cap == 0) &amp;&amp; (meas_fresh_cap == 1)) {</span>
+<span style = "background-color:#fdd">        return false;</span>
+    }
+
+<span style = "background-color:#dfd">    if (version == SPDM_MESSAGE_VERSION_10) {</span>
+        /* If measurements are not signed then CERT_CAP must equal CHAL_CAP.
+         * If measurements are signed then CERT_CAP must be set. */
+<span style = "background-color:#dfd">        if ((meas_cap == 0) || (meas_cap == 1)) {</span>
+<span style = "background-color:#fdd">            if (cert_cap != chal_cap) {
+                return false;
+            }</span>
+<span style = "background-color:#dfd">        } else if (meas_cap == 2) {
+            if (cert_cap == 0) {</span>
+<span style = "background-color:#fdd">                return false;</span>
+            }
+        }
+<span style = "background-color:#dfd">        return true;</span>
+    }
+
+    /* Checks common to 1.1 and higher. */
+<span style = "background-color:#dfd">    if (version &gt;= SPDM_MESSAGE_VERSION_11) {</span>
+        /* Illegal to return reserved values. */
+<span style = "background-color:#dfd">        if (psk_cap == 3) {</span>
+<span style = "background-color:#fdd">            return false;</span>
+        }
+
+        /* Checks that originate from key exchange capabilities. */
+<span style = "background-color:#dfd">        if ((key_ex_cap == 1) || (psk_cap != 0)) {</span>
+            /* While clearing MAC_CAP and setting ENCRYPT_CAP is legal according to DSP0274, libspdm
+             * also implements DSP0277 secure messages, which requires at least MAC_CAP to be set.
+             */
+<span style = "background-color:#fdd">            if (mac_cap == 0) {
+                return false;</span>
+            }
+<span style = "background-color:#fdd">        } else {</span>
+            if ((mac_cap == 1) || (encrypt_cap == 1) || (handshake_in_the_clear_cap == 1) ||
+<span style = "background-color:#dfd">                (hbeat_cap == 1) || (key_upd_cap == 1)) {</span>
+<span style = "background-color:#fdd">                return false;</span>
+            }
+<span style = "background-color:#dfd">            if (version == SPDM_MESSAGE_VERSION_13) {
+                if (event_cap == 1) {</span>
+<span style = "background-color:#fdd">                    return false;</span>
+                }
+            }
+        }
+<span style = "background-color:#dfd">        if ((key_ex_cap == 0) &amp;&amp; (psk_cap != 0)) {</span>
+<span style = "background-color:#fdd">            if (handshake_in_the_clear_cap == 1) {
+                return false;</span>
+            }
+        }
+
+        /* Checks that originate from certificate or public key capabilities. */
+<span style = "background-color:#dfd">        if ((cert_cap == 1) || (pub_key_id_cap == 1)) {</span>
+            /* Certificate capabilities and public key capabilities cannot both be set. */
+<span style = "background-color:#dfd">            if ((cert_cap == 1) &amp;&amp; (pub_key_id_cap == 1)) {</span>
+<span style = "background-color:#fdd">                return false;</span>
+            }
+<span style = "background-color:#dfd">            if ((chal_cap == 0) &amp;&amp; (key_ex_cap == 0) &amp;&amp; ((meas_cap == 0) || (meas_cap == 1))) {</span>
+<span style = "background-color:#fdd">                return false;</span>
+            }
+<span style = "background-color:#dfd">        } else {</span>
+            /* If certificates or public keys are not enabled then these capabilities
+             * cannot be enabled. */
+<span style = "background-color:#dfd">            if ((chal_cap == 1) || (key_ex_cap == 1) || (meas_cap == 2) || (mut_auth_cap == 1)) {</span>
+<span style = "background-color:#fdd">                return false;</span>
+            }
+<span style = "background-color:#dfd">            if (version == SPDM_MESSAGE_VERSION_13) {
+                if (ep_info_cap == 2) {</span>
+<span style = "background-color:#fdd">                    return false;</span>
+                }
+            }
+        }
+
+        /* Checks that originate from mutual authentication capabilities. */
+<span style = "background-color:#dfd">        if (mut_auth_cap == 1) {</span>
+<span style = "background-color:#fdd">            if ((key_ex_cap == 0) &amp;&amp; (chal_cap == 0)) {
+                return false;</span>
+            }
+        }
+    }
+
+    /* Checks specific to 1.1. */
+<span style = "background-color:#dfd">    if (version == SPDM_MESSAGE_VERSION_11) {
+        if ((mut_auth_cap == 1) &amp;&amp; (encap_cap == 0)) {</span>
+<span style = "background-color:#fdd">            return false;</span>
+        }
+    }
+
+    /* Checks common to 1.2 and higher. */
+<span style = "background-color:#dfd">    if (version &gt;= SPDM_MESSAGE_VERSION_12) {
+        if ((cert_cap == 0) &amp;&amp; ((alias_cert_cap == 1) || (set_cert_cap == 1))) {</span>
+<span style = "background-color:#fdd">            return false;</span>
+        }
+<span style = "background-color:#dfd">        if ((csr_cap == 1) &amp;&amp; (set_cert_cap == 0)) {</span>
+<span style = "background-color:#fdd">            return false;</span>
+        }
+<span style = "background-color:#dfd">        if ((cert_install_reset_cap == 1) &amp;&amp; (csr_cap == 0) &amp;&amp; (set_cert_cap == 0)) {</span>
+<span style = "background-color:#fdd">            return false;</span>
+        }
+    }
+
+    /* Checks specific to 1.3. */
+<span style = "background-color:#dfd">    if (version == SPDM_MESSAGE_VERSION_13) {</span>
+        /* Illegal to return reserved values. */
+<span style = "background-color:#dfd">        if ((ep_info_cap == 3) || (multi_key_cap == 3)) {</span>
+<span style = "background-color:#fdd">            return false;</span>
+        }
+        /* check multi-key */
+<span style = "background-color:#dfd">        if ((multi_key_cap != 0) &amp;&amp; (get_key_pair_info_cap == 0)) {</span>
+<span style = "background-color:#fdd">            return false;</span>
+        }
+        /* check multi-key and pub_key_id */
+<span style = "background-color:#dfd">        if (pub_key_id_cap == 1) {</span>
+<span style = "background-color:#fdd">            if ((multi_key_cap != 0) || (get_key_pair_info_cap == 1) ||</span>
+                (set_key_pair_info_cap == 1)) {
+<span style = "background-color:#fdd">                return false;</span>
+            }
+        }
+    }
+
+<span style = "background-color:#dfd">    return true;
+}</span>
+
+/**
+ * This function sends GET_CAPABILITIES and receives CAPABILITIES.
+ *
+ * @param  spdm_context A pointer to the SPDM context.
+ *
+ * @retval LIBSPDM_STATUS_SUCCESS
+ *         GET_CAPABILITIES was sent and CAPABILITIES was received.
+ * @retval LIBSPDM_STATUS_INVALID_STATE_LOCAL
+ *         Cannot send GET_CAPABILITIES due to Requester's state. Send GET_VERSION first.
+ * @retval LIBSPDM_STATUS_INVALID_MSG_SIZE
+ *         The size of the CAPABILITIES response is invalid.
+ * @retval LIBSPDM_STATUS_INVALID_MSG_FIELD
+ *         The CAPABILITIES response contains one or more invalid fields.
+ * @retval LIBSPDM_STATUS_ERROR_PEER
+ *         The Responder returned an unexpected error.
+ * @retval LIBSPDM_STATUS_BUSY_PEER
+ *         The Responder continually returned Busy error messages.
+ * @retval LIBSPDM_STATUS_RESYNCH_PEER
+ *         The Responder returned a RequestResynch error message.
+ * @retval LIBSPDM_STATUS_BUFFER_FULL
+ *         The buffer used to store transcripts is exhausted.
+ **/
+static libspdm_return_t libspdm_try_get_capabilities(libspdm_context_t *spdm_context)
+<span style = "background-color:#dfd">{</span>
+    libspdm_return_t status;
+    spdm_get_capabilities_request_t *spdm_request;
+    size_t spdm_request_size;
+    spdm_capabilities_response_t *spdm_response;
+    size_t spdm_response_size;
+    uint8_t *message;
+    size_t message_size;
+    size_t transport_header_size;
+
+    /* -=[Verify State Phase]=- */
+<span style = "background-color:#dfd">    if (spdm_context-&gt;connection_info.connection_state != LIBSPDM_CONNECTION_STATE_AFTER_VERSION) {</span>
+<span style = "background-color:#fdd">        return LIBSPDM_STATUS_INVALID_STATE_LOCAL;</span>
+    }
+<span style = "background-color:#dfd">    libspdm_reset_message_buffer_via_request_code(spdm_context, NULL, SPDM_GET_CAPABILITIES);</span>
+
+    /* -=[Construct Request Phase]=- */
+<span style = "background-color:#dfd">    transport_header_size = spdm_context-&gt;local_context.capability.transport_header_size;
+    status = libspdm_acquire_sender_buffer (spdm_context, &amp;message_size, (void **)&amp;message);
+    if (LIBSPDM_STATUS_IS_ERROR(status)) {</span>
+<span style = "background-color:#fdd">        return status;</span>
+    }
+<span style = "background-color:#dfd">    LIBSPDM_ASSERT (message_size &gt;= transport_header_size +</span>
+                    spdm_context-&gt;local_context.capability.transport_tail_size);
+<span style = "background-color:#dfd">    spdm_request = (void *)(message + transport_header_size);
+    spdm_request_size = message_size - transport_header_size -</span>
+                        spdm_context-&gt;local_context.capability.transport_tail_size;
+
+<span style = "background-color:#dfd">    libspdm_zero_mem(spdm_request, sizeof(spdm_get_capabilities_request_t));
+    spdm_request-&gt;header.spdm_version = libspdm_get_connection_version (spdm_context);
+    if (spdm_request-&gt;header.spdm_version &gt;= SPDM_MESSAGE_VERSION_12) {
+        spdm_request_size = sizeof(spdm_get_capabilities_request_t);
+    } else if (spdm_request-&gt;header.spdm_version &gt;= SPDM_MESSAGE_VERSION_11) {
+        spdm_request_size = sizeof(spdm_get_capabilities_request_t) -</span>
+                            sizeof(spdm_request-&gt;data_transfer_size) -
+                            sizeof(spdm_request-&gt;max_spdm_msg_size);
+<span style = "background-color:#dfd">    } else {
+        spdm_request_size = sizeof(spdm_request-&gt;header);</span>
+    }
+<span style = "background-color:#dfd">    spdm_request-&gt;header.request_response_code = SPDM_GET_CAPABILITIES;
+    spdm_request-&gt;header.param1 = 0;
+    spdm_request-&gt;header.param2 = 0;
+    if (spdm_request-&gt;header.spdm_version &gt;= SPDM_MESSAGE_VERSION_11) {
+        spdm_request-&gt;ct_exponent = spdm_context-&gt;local_context.capability.ct_exponent;
+        spdm_request-&gt;flags = spdm_context-&gt;local_context.capability.flags;</span>
+    }
+<span style = "background-color:#dfd">    if (spdm_request-&gt;header.spdm_version &gt;= SPDM_MESSAGE_VERSION_12) {
+        spdm_request-&gt;data_transfer_size =</span>
+            spdm_context-&gt;local_context.capability.data_transfer_size;
+<span style = "background-color:#dfd">        spdm_request-&gt;max_spdm_msg_size =</span>
+            spdm_context-&gt;local_context.capability.max_spdm_msg_size;
+    }
+
+    /* -=[Send Request Phase]=- */
+<span style = "background-color:#dfd">    status = libspdm_send_spdm_request(spdm_context, NULL, spdm_request_size, spdm_request);
+    if (LIBSPDM_STATUS_IS_ERROR(status)) {</span>
+<span style = "background-color:#fdd">        libspdm_release_sender_buffer (spdm_context);
+        return status;</span>
+    }
+<span style = "background-color:#dfd">    libspdm_release_sender_buffer (spdm_context);
+    spdm_request = (void *)spdm_context-&gt;last_spdm_request;</span>
+
+    /* -=[Receive Response Phase]=- */
+<span style = "background-color:#dfd">    status = libspdm_acquire_receiver_buffer (spdm_context, &amp;message_size, (void **)&amp;message);
+    if (LIBSPDM_STATUS_IS_ERROR(status)) {</span>
+<span style = "background-color:#fdd">        return status;</span>
+    }
+<span style = "background-color:#dfd">    LIBSPDM_ASSERT (message_size &gt;= transport_header_size);
+    spdm_response = (void *)(message);
+    spdm_response_size = message_size;</span>
+
+<span style = "background-color:#dfd">    libspdm_zero_mem(spdm_response, spdm_response_size);
+    status = libspdm_receive_spdm_response(spdm_context, NULL, &amp;spdm_response_size,</span>
+                                           (void **)&amp;spdm_response);
+<span style = "background-color:#dfd">    if (LIBSPDM_STATUS_IS_ERROR(status)) {</span>
+<span style = "background-color:#fdd">        goto receive_done;</span>
+    }
+
+    /* -=[Validate Response Phase]=- */
+<span style = "background-color:#dfd">    if (spdm_response_size &lt; sizeof(spdm_message_header_t)) {</span>
+<span style = "background-color:#fdd">        status = LIBSPDM_STATUS_INVALID_MSG_SIZE;
+        goto receive_done;</span>
+    }
+<span style = "background-color:#dfd">    if (spdm_response-&gt;header.spdm_version != spdm_request-&gt;header.spdm_version) {</span>
+<span style = "background-color:#fdd">        status = LIBSPDM_STATUS_INVALID_MSG_FIELD;
+        goto receive_done;</span>
+    }
+<span style = "background-color:#dfd">    if (spdm_response-&gt;header.request_response_code == SPDM_ERROR) {</span>
+<span style = "background-color:#fdd">        status = libspdm_handle_simple_error_response(</span>
+            spdm_context, spdm_response-&gt;header.param1);
+<span style = "background-color:#fdd">        if (LIBSPDM_STATUS_IS_ERROR(status)) {
+            goto receive_done;
+        }</span>
+<span style = "background-color:#dfd">    } else if (spdm_response-&gt;header.request_response_code != SPDM_CAPABILITIES) {</span>
+<span style = "background-color:#fdd">        status = LIBSPDM_STATUS_INVALID_MSG_FIELD;
+        goto receive_done;</span>
+    }
+<span style = "background-color:#dfd">    if (spdm_response-&gt;header.spdm_version &gt;= SPDM_MESSAGE_VERSION_12) {
+        if (spdm_response_size &lt; sizeof(spdm_capabilities_response_t)) {</span>
+<span style = "background-color:#fdd">            status = LIBSPDM_STATUS_INVALID_MSG_SIZE;
+            goto receive_done;</span>
+        }
+<span style = "background-color:#dfd">    } else {
+        if (spdm_response_size &lt; sizeof(spdm_capabilities_response_t) -</span>
+            sizeof(spdm_response-&gt;data_transfer_size) - sizeof(spdm_response-&gt;max_spdm_msg_size)) {
+<span style = "background-color:#fdd">            status = LIBSPDM_STATUS_INVALID_MSG_SIZE;
+            goto receive_done;</span>
+        }
+    }
+<span style = "background-color:#dfd">    if (spdm_request-&gt;header.spdm_version &gt;= SPDM_MESSAGE_VERSION_12) {
+        spdm_response_size = sizeof(spdm_capabilities_response_t);
+    } else {
+        spdm_response_size = sizeof(spdm_capabilities_response_t) -</span>
+                             sizeof(spdm_response-&gt;data_transfer_size) -
+                             sizeof(spdm_response-&gt;max_spdm_msg_size);
+    }
+
+<span style = "background-color:#dfd">    if (!validate_responder_capability(spdm_response-&gt;flags, spdm_response-&gt;header.spdm_version)) {</span>
+<span style = "background-color:#fdd">        status = LIBSPDM_STATUS_INVALID_MSG_FIELD;
+        goto receive_done;</span>
+    }
+<span style = "background-color:#dfd">    if (spdm_response-&gt;header.spdm_version &gt;= SPDM_MESSAGE_VERSION_12) {
+        if ((spdm_response-&gt;data_transfer_size &lt; SPDM_MIN_DATA_TRANSFER_SIZE_VERSION_12) ||</span>
+            (spdm_response-&gt;data_transfer_size &gt; spdm_response-&gt;max_spdm_msg_size)) {
+<span style = "background-color:#fdd">            status = LIBSPDM_STATUS_INVALID_MSG_FIELD;
+            goto receive_done;</span>
+        }
+
+<span style = "background-color:#dfd">        if (((spdm_response-&gt;flags &amp; SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_CHUNK_CAP) == 0) &amp;&amp;</span>
+            (spdm_response-&gt;data_transfer_size != spdm_response-&gt;max_spdm_msg_size)) {
+<span style = "background-color:#fdd">            status = LIBSPDM_STATUS_INVALID_MSG_FIELD;
+            goto receive_done;</span>
+        }
+    }
+
+<span style = "background-color:#dfd">    if (spdm_response-&gt;ct_exponent &gt; LIBSPDM_MAX_CT_EXPONENT) {</span>
+<span style = "background-color:#fdd">        status = LIBSPDM_STATUS_INVALID_MSG_FIELD;
+        goto receive_done;</span>
+    }
+
+    /* -=[Process Response Phase]=- */
+<span style = "background-color:#dfd">    status = libspdm_append_message_a(spdm_context, spdm_request, spdm_request_size);
+    if (LIBSPDM_STATUS_IS_ERROR(status)) {</span>
+<span style = "background-color:#fdd">        goto receive_done;</span>
+    }
+
+<span style = "background-color:#dfd">    status = libspdm_append_message_a(spdm_context, spdm_response, spdm_response_size);
+    if (LIBSPDM_STATUS_IS_ERROR(status)) {</span>
+<span style = "background-color:#fdd">        goto receive_done;</span>
+    }
+
+<span style = "background-color:#dfd">    spdm_context-&gt;connection_info.capability.ct_exponent = spdm_response-&gt;ct_exponent;</span>
+
+<span style = "background-color:#dfd">    if (spdm_response-&gt;header.spdm_version == SPDM_MESSAGE_VERSION_10) {
+        spdm_context-&gt;connection_info.capability.flags =</span>
+            spdm_response-&gt;flags &amp; SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_10_MASK;
+<span style = "background-color:#dfd">    } else if (spdm_response-&gt;header.spdm_version == SPDM_MESSAGE_VERSION_11) {
+        spdm_context-&gt;connection_info.capability.flags =</span>
+            spdm_response-&gt;flags &amp; SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_11_MASK;
+<span style = "background-color:#dfd">    } else if (spdm_response-&gt;header.spdm_version == SPDM_MESSAGE_VERSION_12) {</span>
+<span style = "background-color:#fdd">        spdm_context-&gt;connection_info.capability.flags =</span>
+            spdm_response-&gt;flags &amp; SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_12_MASK;
+<span style = "background-color:#fdd">    } else {</span>
+<span style = "background-color:#dfd">        spdm_context-&gt;connection_info.capability.flags =</span>
+            spdm_response-&gt;flags &amp; SPDM_GET_CAPABILITIES_RESPONSE_FLAGS_13_MASK;
+    }
+
+<span style = "background-color:#dfd">    if (spdm_response-&gt;header.spdm_version &gt;= SPDM_MESSAGE_VERSION_12) {
+        spdm_context-&gt;connection_info.capability.data_transfer_size =</span>
+            spdm_response-&gt;data_transfer_size;
+<span style = "background-color:#dfd">        spdm_context-&gt;connection_info.capability.max_spdm_msg_size =</span>
+            spdm_response-&gt;max_spdm_msg_size;
+<span style = "background-color:#dfd">    } else {
+        spdm_context-&gt;connection_info.capability.data_transfer_size = 0;
+        spdm_context-&gt;connection_info.capability.max_spdm_msg_size = 0;</span>
+    }
+
+    /* -=[Update State Phase]=- */
+<span style = "background-color:#dfd">    spdm_context-&gt;connection_info.connection_state = LIBSPDM_CONNECTION_STATE_AFTER_CAPABILITIES;
+    status = LIBSPDM_STATUS_SUCCESS;</span>
+
+    /* -=[Log Message Phase]=- */
+    #if LIBSPDM_ENABLE_MSG_LOG
+<span style = "background-color:#dfd">    libspdm_append_msg_log(spdm_context, spdm_response, spdm_response_size);</span>
+    #endif /* LIBSPDM_ENABLE_MSG_LOG */
+
+receive_done:
+<span style = "background-color:#dfd">    libspdm_release_receiver_buffer (spdm_context);
+    return status;
+}</span>
+
+libspdm_return_t libspdm_get_capabilities(libspdm_context_t *spdm_context)
+<span style = "background-color:#dfd">{</span>
+    size_t retry;
+    uint64_t retry_delay_time;
+    libspdm_return_t status;
+
+<span style = "background-color:#dfd">    spdm_context-&gt;crypto_request = false;
+    retry = spdm_context-&gt;retry_times;
+    retry_delay_time = spdm_context-&gt;retry_delay_time;</span>
+    do {
+<span style = "background-color:#dfd">        status = libspdm_try_get_capabilities(spdm_context);
+        if ((status != LIBSPDM_STATUS_BUSY_PEER) || (retry == 0)) {
+            return status;</span>
+        }
+
+<span style = "background-color:#fdd">        libspdm_sleep(retry_delay_time);
+    } while (retry-- != 0);</span>
+
+<span style = "background-color:#fdd">    return status;</span>
+<span style = "background-color:#dfd">}</span></pre>
+        <hr />
+        <table width="100%">
+            <thead>
+                <tr>
+                    <th align="center">
+                        <small>Generated by</small>
+                        <a href="https://github.com/OpenCppCoverage/OpenCppCoverage/releases">
+                            <strong>OpenCppCoverage (Version: 0.9.9.0)</strong>
+                        </a>
+                    </th>
+                </tr>
+            </thead>
+        </table>
+    </body>
+</html>
