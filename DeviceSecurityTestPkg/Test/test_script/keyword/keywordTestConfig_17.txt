@@ -3,11 +3,8 @@
     EventType - 0x800000E3
     DigestCount: 0x00000001
     HashAlgo : 0x000C
-    Digest(0): 63BDAABC2A6160E7E5EECBFD7DC8B1CDBE29B0A2C7E83911E8115191321DB164885640FB0BB135A3980260103C92D578
     EventData - Type: EV_EFI_SPDM_DEVICE_POLICY
       VariableName       - B9C2B4F4-BF5F-462D-8ADF-C5C70AC35DAD
-      UnicodeNameLength  - 0x0000000000000005
-      VariableDataLength - 0x0000000000000249
       UnicodeName        - devdb
 
       EFI_SIGNATURE_LIST :
@@ -23,8 +20,6 @@
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x00000072
       AuthState         - 0x000000FF
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000001
-      SubHeaderLength   - 0x00000000

@@ -3,7 +3,6 @@ Event:
     EventType - 0x00000003
     DigestCount: 0x00000001
     HashAlgo : 0x000C
-    Digest(0): 5CAB01ED38EECE451EA65FC9A4C7CB11C155A2E86B5DD15A7E55A5F48EBF535CF8D159C6DBF192D8371A9DEF70DD7973
     EventData - Type: EV_NO_ACTION
       TcgNvIndexInstanceEvent:
         Signature       - 'NvIndexInstance '
@@ -11,13 +10,10 @@ Event:
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x0000007A
       AuthState         - 0x00000004
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000001
-      SubHeaderLength   - 0x00000008
       SubHeaderUID      - 0x0000000000000000
-      DevicePathLength  - 0x0000000000000016
       DevicePath        - PciRoot(0x0)/Pci(0x0,0x0)
       SpdmCertChainSubHeader:
         SpdmVersion   - 0x0013
@@ -25,7 +21,6 @@ Event:
         SpdmHashAlgo  - 0x00000001
 
 ErrorKeyword start:
-    Digest(0): D15717B416B7357B2EAA87C05C27016C87F8E44F566BD8E38E44D008D328405DBB2CBE4292B2619700A9E7540AAEEAB1
     EventData - Type: EV_EFI_SPDM_DEVICE_AUTHORITY
 
         DescriptionSize - 0x000F

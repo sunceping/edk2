@@ -6,7 +6,6 @@
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x00000089
       AuthState         - 0x00000000
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000000
@@ -27,7 +26,6 @@
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x00000089
       AuthState         - 0x00000000
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000000
@@ -48,7 +46,6 @@
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x00000089
       AuthState         - 0x00000000
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000000
@@ -70,7 +67,6 @@
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x00000089
       AuthState         - 0x00000000
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000000
@@ -90,7 +86,6 @@
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x00000071
       AuthState         - 0x00000000
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000000
@@ -110,7 +105,6 @@
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x00000079
       AuthState         - 0x00000000
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000000

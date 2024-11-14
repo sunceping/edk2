@@ -3,7 +3,6 @@ Event:
     EventType - 0x00000003
     DigestCount: 0x00000001
     HashAlgo : 0x000C
-    Digest(0): F566472BD337874F43DF3B53AD6264934E448D98F3AC268535D9903B32E109CC45FA8A107747E5CCD6D7232725022A4D
     EventData - Type: EV_NO_ACTION
       TcgNvIndexInstanceEvent:
         Signature       - 'NvIndexInstance '
@@ -11,13 +10,10 @@ Event:
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x00000E4E
       AuthState         - 0x00000002
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000001
-      SubHeaderLength   - 0x00000DDC
       SubHeaderUID      - 0x0000000000000000
-      DevicePathLength  - 0x0000000000000016
       DevicePath        - PciRoot(0x0)/Pci(0x0,0x0)
       SpdmCertChainSubHeader:
         SpdmVersion   - 0x0013
@@ -32,7 +28,6 @@ Event:
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x00000089
       AuthState         - 0x00000000
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000000
@@ -53,7 +48,6 @@ Event:
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x00000089
       AuthState         - 0x00000000
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000000
@@ -74,7 +68,6 @@ Event:
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x00000089
       AuthState         - 0x00000000
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000000
@@ -96,7 +89,6 @@ Event:
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x00000089
       AuthState         - 0x00000000
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000000
@@ -116,7 +108,6 @@ Event:
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x00000071
       AuthState         - 0x00000000
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000000
@@ -136,7 +127,6 @@ Event:
     TcgDeviceSecurityEvent2:
       Signature         - 'SPDM Device Sec2'
       Version           - 0x0002
-      Length            - 0x00000079
       AuthState         - 0x00000000
       DeviceType        - 0x00000001
       SubHeaderType     - 0x00000000
@@ -174,7 +164,6 @@ Event:
         Description     - "SPDM MEASUREMENTS "
 
 ErrorKeyword start:
-    Digest(0): D15717B416B7357B2EAA87C05C27016C87F8E44F566BD8E38E44D008D328405DBB2CBE4292B2619700A9E7540AAEEAB1
     EventData - Type: EV_EFI_SPDM_DEVICE_AUTHORITY
 
         DescriptionSize - 0x000F
