@@ -16,10 +16,13 @@
 
 [Sources]
   DeployCert.c
-  TestRootCer.c
-  TestRootKey.c
-  EccTestRootCer.c
-  EccTestRootKey.c
+  Ecc256CertChain1.c
+  Ecc384CertChain2.c
+  Ecc521CertChain3.c
+  Rsa2048CertChain1.c
+  Rsa2048CertChain2.c
+  Rsa3072CertChain3.c
+  Rsa4096CertChain4.c
 
 [Packages]
   MdePkg/MdePkg.dec
