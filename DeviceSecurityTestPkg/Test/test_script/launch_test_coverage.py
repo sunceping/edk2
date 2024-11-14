@@ -4,27 +4,30 @@ import shutil
 import sys
 import time
 
-if os.path.exists('Z:/'):
-    os.system('subst z: /d')
-os.system('subst z: C:\edk2-staging_Zhiqiang')
+# if os.path.exists('Z:/'):
+#     os.system('subst z: /d')
+# os.system('subst z: C:\edk2-staging_Zhiqiang')
 
 def readonly_handler(func, path, excinfo): 
     os.chmod(path, stat.S_IWRITE)
     func(path)  
 # if os.path.exists('Z:\Build'):
 #     shutil.rmtree('Z:\Build', onerror=readonly_handler)
+
 os.environ["PYTHON_HOME"] = r"C:\Python38"
-os.chdir('Z:')
+pkg = os.getcwd()
+pwd = pkg.split("DeviceSecurityTestPkg")[0]
+os.chdir(pwd)
 
 os.system(r'edksetup.bat && build -p EmulatorPkg\EmulatorPkg.dsc -t VS2019 -a X64 -b DEBUG -j build_DEBUG.log')
 os.system(r'edksetup.bat && build -p DeviceSecurityTestPkg\DeviceSecurityTestPkg.dsc -t VS2019 -a X64 -b DEBUG -j build_DEBUG.log')
 os.system(r'copy /Y Build\DeviceSecurityTestPkg\DEBUG_VS2019\X64\*.efi Build\EmulatorX64\DEBUG_VS2019\X64')
 
-WinHost_exe_path = r'Z:\Build\EmulatorX64\DEBUG_VS2019\X64'
+WinHost_exe_path = pwd + r'\Build\EmulatorX64\DEBUG_VS2019\X64'
 test_output = os.path.join(WinHost_exe_path,'test_output')
 startup_nsh = os.path.join(WinHost_exe_path,'startup.nsh')
 test_output_log = os.path.join(test_output, 'log')
-sources_code = r'Z:\SecurityPkg\DeviceSecurity\SpdmSecurityLib'
+sources_code = pwd + r'\SecurityPkg\DeviceSecurity\SpdmSecurityLib'
 
 if os.path.exists(test_output):
     shutil.rmtree(test_output, onerror=readonly_handler)
@@ -68,8 +71,8 @@ for root,dirs,files in os.walk(os.path.join(sys.path[0], 'TestConfig')):
             time.sleep(10)
             print('test case finish')
         time.sleep(3)
-        os.system(r'taskkill /IM WinHost.exe /F /T')
-        time.sleep(3)
+        # os.system(r'taskkill /IM WinHost.exe /F /T')
+        # time.sleep(3)
 
 #creates code coverage report in HTML format to have a global overview of the coverage.
 os.system(r'start /WAIT OpenCppCoverage --sources %s --input_coverage=TestCov.cov -- .\WinHost.exe'%(sources_code))

@@ -3,7 +3,20 @@ REM py -3 launch_test.py
 @REM py -3 launch_test_coverage.py
 py -3 launch_test.py
 
-SET test_output=D:\Ceping\edk2_ww4405\Build\EmulatorX64\DEBUG_VS2019\X64\test_output
+SET cwd=%~dp0
+
+echo %cwd%
+
+
+SET build=Build\EmulatorX64\DEBUG_VS2019\X64\test_output
+SET mainpwd=%cwd:DeviceSecurityTestPkg\Test\test_script\=%
+
+echo %mainpwd%
+
+SET test_output=%mainpwd%%build%
+
+echo %test_output%
+
 if not exist %test_output%\result mkdir %test_output%\result
 
 echo "check the keyword in log file"

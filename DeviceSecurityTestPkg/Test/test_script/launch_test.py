@@ -4,19 +4,13 @@ import shutil
 import sys
 import time
 
-# if os.path.exists('Z:/'):
-#     os.system('subst z: /d')
-# os.system('subst z: C:\edk2-staging_Zhiqiang')
-
 def readonly_handler(func, path, excinfo): 
     os.chmod(path, stat.S_IWRITE)
     func(path)  
-# if os.path.exists('Z:\Build'):
-#     shutil.rmtree('Z:\Build', onerror=readonly_handler)
-os.environ["PYTHON_HOME"] = r"C:\Python38"
-# os.chdir('Z:')
 
-pwd = "D:\Ceping\edk2_ww4405"
+os.environ["PYTHON_HOME"] = r"C:\Python38"
+pkg = os.getcwd()
+pwd = pkg.split("DeviceSecurityTestPkg")[0]
 os.chdir(pwd)
 
 os.system(r'edksetup.bat && build -p EmulatorPkg\EmulatorPkg.dsc -t VS2019 -a X64 -b DEBUG -j build_DEBUG.log')
@@ -24,7 +18,6 @@ os.system(r'edksetup.bat && build -p DeviceSecurityTestPkg\DeviceSecurityTestPkg
 os.system(r'copy /Y Build\DeviceSecurityTestPkg\DEBUG_VS2019\X64\*.efi Build\EmulatorX64\DEBUG_VS2019\X64')
 
 
-sys.exit()
 WinHost_exe_path = pwd + r'\Build\EmulatorX64\DEBUG_VS2019\X64'
 test_output = os.path.join(WinHost_exe_path,'test_output')
 startup_nsh = os.path.join(WinHost_exe_path,'startup.nsh')
@@ -43,8 +36,6 @@ os.mkdir(test_output_log)
 os.mkdir(test_output_bootlog)
 for root,dirs,files in os.walk(os.path.join(sys.path[0], 'TestConfig')):
     for filespath in files:
-        # if "TestConfig_03.nsh" not in filespath:
-        #     continue
         print (os.path.join(root,filespath))
         LogFileName = os.path.split(filespath)[1].replace(r'.nsh' ,r'.log')
         print(LogFileName)
@@ -52,7 +43,6 @@ for root,dirs,files in os.walk(os.path.join(sys.path[0], 'TestConfig')):
         os.chdir(WinHost_exe_path)
         if os.path.exists(os.path.join(test_output_log, LogFileName)):
             os.remove(os.path.join(test_output_log, LogFileName))
-        # os.system(r'start WinHost.exe')
         bootLogFileName = os.path.split(filespath)[1].replace(r'.nsh' ,r'_boot.log')
         bootlogfile = os.path.join(test_output_bootlog, bootLogFileName)
         cmd = "WinHost.exe > " + bootlogfile + " 2>&1"
@@ -72,5 +62,3 @@ for root,dirs,files in os.walk(os.path.join(sys.path[0], 'TestConfig')):
             time.sleep(10)
             print('test case finish')
         time.sleep(3)
-        # os.system(r'taskkill /IM WinHost.exe /F /T')
-        # time.sleep(3)

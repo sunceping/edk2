@@ -1,11 +1,20 @@
 import os
-
+import sys
 
 def get_env():
     build_date = ''
     build_time = ''    
     edk2_version = ''
-    with open(r'D:\Ceping\edk2-staging_test\Build\EmulatorX64\DEBUG_VS2019\X64\test_output\env.txt', 'r') as f:
+    
+    pkg = os.getcwd()
+    pwd = pkg.split("DeviceSecurityTestPkg")[0]
+    filepath =os.path.join(pwd,r'Build\EmulatorX64\DEBUG_VS2019\X64\test_output\env.txt')
+    print("filepath %s " % filepath)
+    if not os.path.isfile(filepath):
+        print("Generate_Report: %s is not file" % filepath)
+        sys.exit()
+
+    with open(filepath, 'r') as f:
         lines = f.readlines()
         build_date = lines[0]
         build_time = lines[1]
@@ -20,8 +29,10 @@ def read_result():
                  '<tr><th>No.</th><th>Test Case</th><th>Result</th></tr>'
     str_row = '<tr><td>%d</td><td class = "styleLeft">%s</td><td>%s</td></tr>'
     summary_row_format = '<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>'
+    pkg = os.getcwd()
+    pwd = pkg.split("DeviceSecurityTestPkg")[0]
     
-    out_SPDM_path = r'D:\Ceping\edk2-staging_test\Build/EmulatorX64/DEBUG_VS2019/X64/test_output/result'
+    out_SPDM_path =os.path.join(pwd,r'Build\EmulatorX64\DEBUG_VS2019\X64\test_output\result')
     SPDM_content = ''
     SPDM_content += table_head.format('Test Case List')
     SPDM_NUM = 1
