@@ -62,10 +62,10 @@ cd /path/to/edk2
 source edksetup.sh
 
 ## CC_MEASUREMENT disabled
-build -p OvmfPkg/OvmfPkgX64.dsc -a X64 -t GCC5 -D CC_MEASUREMENT_ENABLE=FALSE -b RELEASE
+build -p OvmfPkg/OvmfPkgX64.dsc -a X64 -t GCC5 -D CC_SUPPORT=FALSE -b RELEASE
 
 ## CC_MEASUREMENT enabled
-build -p OvmfPkg/OvmfPkgX64.dsc -a X64 -t GCC5 -D CC_MEASUREMENT_ENABLE=TRUE -b RELEASE
+build -p OvmfPkg/OvmfPkgX64.dsc -a X64 -t GCC5 -D CC_SUPPORT=TRUE -b RELEASE
 ```
 
 - Build the TDVF (Config-B) target:

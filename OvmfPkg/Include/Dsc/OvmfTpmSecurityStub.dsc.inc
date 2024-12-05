@@ -8,11 +8,11 @@
 !endif
 !endif
 
-!if $(TPM2_ENABLE) == TRUE || $(CC_MEASUREMENT_ENABLE) == TRUE
+!if $(TPM2_ENABLE) == TRUE || $(CC_SUPPORT) == TRUE
       #
       # DxeTpm2MeasureBootLib provides security service of TPM2 measure boot and
       # Confidential Computing (CC) measure boot. It should be controlled by
-      # TPM2_ENABLE and CC_MEASUREMENT_ENABLE
+      # TPM2_ENABLE and CC_SUPPORT
       #
       NULL|SecurityPkg/Library/DxeTpm2MeasureBootLib/DxeTpm2MeasureBootLib.inf
 !endif

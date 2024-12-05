@@ -32,7 +32,7 @@
   DEFINE SECURE_BOOT_ENABLE      = FALSE
   DEFINE SMM_REQUIRE             = FALSE
   DEFINE SOURCE_DEBUG_ENABLE     = FALSE
-  DEFINE CC_MEASUREMENT_ENABLE   = TRUE
+  DEFINE CC_SUPPORT              = TRUE
 
 !include OvmfPkg/Include/Dsc/OvmfTpmDefines.dsc.inc
 
@@ -208,11 +208,14 @@
   ImagePropertiesRecordLib|MdeModulePkg/Library/ImagePropertiesRecordLib/ImagePropertiesRecordLib.inf
   HstiLib|MdePkg/Library/DxeHstiLib/DxeHstiLib.inf
 
-!if $(SMM_REQUIRE) == FALSE
-  LockBoxLib|OvmfPkg/Library/LockBoxLib/LockBoxBaseLib.inf
+!if $(CC_SUPPORT) == TRUE & $(SMM_REQUIRE) == FALSE
   CcProbeLib|OvmfPkg/Library/CcProbeLib/DxeCcProbeLib.inf
 !else
   CcProbeLib|MdePkg/Library/CcProbeLibNull/CcProbeLibNull.inf
+!endif
+
+!if $(SMM_REQUIRE) == FALSE
+  LockBoxLib|OvmfPkg/Library/LockBoxLib/LockBoxBaseLib.inf
 !endif
   CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
   FrameBufferBltLib|MdeModulePkg/Library/FrameBufferBltLib/FrameBufferBltLib.inf
@@ -1045,7 +1048,7 @@
   #
   # Cc Measurement Protocol for Td guest
   #
-!if $(CC_MEASUREMENT_ENABLE) == TRUE
+!if $(CC_SUPPORT) == TRUE
   OvmfPkg/Tcg/TdTcg2Dxe/TdTcg2Dxe.inf {
     <LibraryClasses>
       HashLib|OvmfPkg/Library/HashLibTdx/HashLibTdx.inf

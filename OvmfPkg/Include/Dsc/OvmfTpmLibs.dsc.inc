@@ -14,10 +14,10 @@
   Tcg2PhysicalPresenceLib|OvmfPkg/Library/Tcg2PhysicalPresenceLibNull/DxeTcg2PhysicalPresenceLib.inf
 !endif
 
-!if $(TPM2_ENABLE) == TRUE || $(CC_MEASUREMENT_ENABLE) == TRUE
+!if $(TPM2_ENABLE) == TRUE || $(CC_SUPPORT) == TRUE
   #
   # DxeTpmMeasurementLib supports measurement functions for both TPM and Confidential Computing.
-  # It should be controlled by TPM2_ENABLE and CC_MEASUREMENT_ENABLE.
+  # It should be controlled by TPM2_ENABLE and CC_SUPPORT.
   #
   TpmMeasurementLib|SecurityPkg/Library/DxeTpmMeasurementLib/DxeTpmMeasurementLib.inf
 !else
